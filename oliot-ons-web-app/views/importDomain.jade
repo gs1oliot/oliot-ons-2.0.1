@@ -1,0 +1,18 @@
+extends layout
+
+block mainContent
+	h2 Importing zone for 
+		span.zoneName  #{name}
+	
+	p
+		a(href='/server/#{server}', class='button small pink') &laquo; Back to index
+	
+	if error
+		p.error Something went terribly bad: #{error}
+	
+	form(method='post')
+		label Domain content (same format as export):
+			div
+				textarea.importData(name='strRecords')
+		div.formFooter
+			input(type='submit', value='import')

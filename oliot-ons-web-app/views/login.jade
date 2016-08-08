@@ -1,0 +1,17 @@
+extends layout
+
+block mainContent
+	h2 You have to login to be able to administrate your zones.
+	
+	form(method='post')
+		p
+			label 
+				span.login Username: 
+				input.login(name='username')
+		p 
+			label 
+				span.login Password: 
+				input.login(type="password", name='password')
+		div.formFooter
+			input(type="submit", name='login', value="Login")     
+			input(type="submit", name='signup', value="Sign Up")

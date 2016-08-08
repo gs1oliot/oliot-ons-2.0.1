@@ -1,0 +1,37 @@
+extends layout
+
+block mainContent
+	if error
+		p.error Something went terribly bad: #{error}
+	
+	if (owner == 'yes')				
+		h2 Your domains
+	else		
+		h2 Your delegated domains
+	
+	a(href='/', class='button small pink') &laquo  Back to index
+	
+	if (owner == 'yes')
+		p Showing your domains in server: #{server}.
+		p
+			a(href='/server/#{server}/addDomain', class='button small green') + add new domain
+	else
+		p Showing your delegated domains in server: #{server}.
+		
+	
+	each domain in domains
+		li.listRow= domain + ' '
+			if (owner == 'yes')
+				a(href='/server/#{server}/domain/#{domain}/delete', onclick='return confirm(\'Are you sure that you want to delete this domain?\');', class='button small  delete') delete
+				|	
+				a(href='/server/#{server}/domain/#{domain}', class='button small  edit') edit				
+				|	
+				a(href='/server/#{server}/domain/#{domain}/export', class='button small  edit') export
+				|	
+				a(href='/server/#{server}/domain/#{domain}/import', class='button small  edit') import
+				|	
+				a(href='/server/#{server}/domain/#{domain}/delegate', class='button small  edit') delegate
+				|	
+				a(href='/server/#{server}/domain/#{domain}/unDelegate', class='button small  edit') unDelegate
+			else
+				a(href='/server/#{server}/domain/#{domain}', class='button small  edit') edit	

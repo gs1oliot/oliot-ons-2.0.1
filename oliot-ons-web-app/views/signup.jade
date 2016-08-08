@@ -1,0 +1,24 @@
+extends layout
+
+block mainContent
+	h2 You have to login to be able to administrate your zones.
+	
+	a(href='/', class='button small pink') &laquo  Back to index
+		
+	form(method='post')
+		p
+			label 
+				span.login User type:
+				select.login(name='select')
+					each item in ['Employee','Company']
+						option(value=item) #{item}
+		p
+			label 
+				span.login Username: 
+				input.login(name='username')
+		p 
+			label 
+				span.login Password: 
+				input.login(type="password", name='password')
+		div.formFooter  
+			input(type="submit", name='signup', value="Sign Up")

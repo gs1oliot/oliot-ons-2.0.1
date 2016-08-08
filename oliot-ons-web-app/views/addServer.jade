@@ -1,0 +1,29 @@
+extends layout
+
+block mainContent
+	h2 Adding server
+	
+	a(href='/', class='button small pink') &laquo  Back to index
+
+	if error
+		p.error Something went terribly bad: #{error}	
+		
+	form(method='post')
+		p
+			label
+				span.addServer Server Address: 
+				input(name='servername')
+		p
+			label
+				span.addServer Server Port: 
+				input(name='serverport')
+		p
+			label
+				span.addServer Database Username: 
+				input(name='dbUsername')
+		p
+			label
+				span.addServer Database Password: 
+				input(type="password", name='dbPassword')
+		div.formFooter
+			input(type='submit', value='Add')

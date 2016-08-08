@@ -1,0 +1,19 @@
+extends layout
+
+block mainContent
+	h2 Request to company
+	
+	p
+		a(href='/', class="button small pink") &laquo;  Back to index
+	
+	if error
+		p.error Something went terribly bad: #{error}
+	
+	form(method='post')
+		p
+			label Requester list:
+				select.login(name='requestername')
+					each item in requests
+						option(value=item) #{item}	
+		div.formFooter
+			input(type='submit', value='request accept')

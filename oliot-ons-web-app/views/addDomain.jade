@@ -1,0 +1,16 @@
+extends layout
+
+block mainContent
+	h2 Adding domain
+	
+	a(href='/server/#{server}', class='button small pink') &laquo  Back to index
+
+	if error
+		p.error Something went terribly bad: #{error}	
+		
+	form(method='post')
+		div(class='listRow')
+			label Domain to add:
+				input(name='domainname', value='')
+		div.formFooter
+			input(type='submit', value='Add')

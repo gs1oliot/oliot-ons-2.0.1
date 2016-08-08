@@ -1,0 +1,27 @@
+doctype html
+html(lang="en")
+	head
+		link(rel="stylesheet", href="/css/", type="text/css", media="screen")
+		script(src='http://code.jquery.com/jquery-1.10.1.min.js')
+		script(src='/socket.io/socket.io.js')
+		script(src="http://code.highcharts.com/stock/highstock.js")
+		script(src="http://code.highcharts.com/stock/modules/exporting.js")
+
+		- if (typeof(title) != 'undefined')
+			title= title
+		- else
+			title Object Name Service
+	body
+		div.wrapper
+			div.header
+				//div.logo
+				- if (user != null && user != 'undefined')
+					p.userInfo Logged in as: 
+						span.userName #{user.email} 
+						a(href='/logout') log out 
+				div.clear
+					
+			div.content
+				block mainContent
+			div.footer
+				

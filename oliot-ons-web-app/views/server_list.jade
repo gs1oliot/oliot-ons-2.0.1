@@ -1,0 +1,32 @@
+extends layout
+
+block mainContent
+	if error
+		p.error Something went terribly bad: #{error}				
+	
+	h2 Your servers and delegates
+	if (company)
+		a(href='/addEmployee', class="button small pink") + Add employees
+		a(href='/addAdministrator', class="button small pink") + Add administrators
+		a(href='/addRequest', class="button small pink") + Accept Requests
+	else if(total==0)
+		p
+			a(href='/requestCompany', class="button small pink") + Request to companies
+
+		
+	p Showing your servers in your account.
+	if (company) 
+		p
+			a(href='/addserver', class='button small green') + add new server
+
+	each server in servers
+		li.listRow= server + ' '
+			a(href='/delserver/#{server}', onclick='return confirm(\'Are you sure that you want to delete this server?\');', class='button small  delete') delete
+			|	
+			a(href='/server/#{server}', class='button small  edit') edit		
+	
+	p Showing delegates in your account.
+	
+	each delegate in delegates
+		li.listRow= delegate + ' '
+			a(href='/server/#{delegate}', class='button small  edit') edit			

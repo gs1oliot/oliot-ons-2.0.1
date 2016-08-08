@@ -1,0 +1,31 @@
+extends layout
+
+block mainContent
+	if error
+		p.error Something went terribly bad: #{error}
+	p
+		a(href='/', class="button small pink") &laquo;  Back to main
+	h2 Your things and groups
+	p Showing things in your account.
+
+	p
+		a(href='/addthing', class='button small green') + add new thing
+
+	each thing in things
+		li.listRow= thing + ' '
+			a(href='/delthing/#{thing}', onclick='return confirm(\'Are you sure that you want to delete this thing?\');', class='button small  delete') delete
+			|	
+			a(href='/thing/#{thing}', class='button small  edit') edit		
+	
+	p Showing groups in your account.
+	
+	p
+		a(href='/addgroup', class='button small green') + add new group
+		
+	each group in groups
+		li.listRow= group + ' '
+			if (group != (user.email +':public'))
+				a(href='/delgroup/#{group}/', onclick='return confirm(\'Are you sure that you want to delete this thing?\');', class='button small  delete') delete
+				|	
+				a(href='/group/#{group}', class='button small  edit') edit			
+	

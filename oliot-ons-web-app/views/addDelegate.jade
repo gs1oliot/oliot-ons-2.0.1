@@ -1,0 +1,25 @@
+extends layout
+
+block mainContent
+	h2 Request to company
+	
+	p
+		a(href='/server/#{server}', class="button small pink") &laquo;  Back to index
+	
+	if error
+		p.error Something went terribly bad: #{error}
+
+	form(method='post')
+		p
+			label Delegator: 
+				select.login(name='delegator')
+					each item in others
+						option(value=item) #{item}
+		p
+			label Maximum delegating number:
+				select.login(name='bound')
+					each item in ['0','1', '2', '3', '4', '5',]
+						option(value=item) #{item}
+							
+		div.formFooter
+			input(type='submit', value='add delegator')
