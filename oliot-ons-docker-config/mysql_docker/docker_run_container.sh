@@ -1,0 +1,1 @@
+docker run -d --name backend_mysql -e MYSQL_ROOT_PASSWORD=root_password -e MYSQL_DATABASE=your_db_name -e MYSQL_USER=your_id -e MYSQL_PASSWORD=your_password -v $project_folder(modify this)/data:/var/lib/mysql -p 3306:3306 mysql:5.5
