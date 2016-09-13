@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "start": "node app.js"
+    "start": "node ons_api_app.js"
   },
   "dependencies": {
     "express": "3.2.6",
@@ -15,6 +15,7 @@
     "pg-promise": "3.2.6",
     "bluebird": "3.3.3",
     "pdns": "0.2.2",
-    "mysql": "2.10.2"
+    "mysql": "2.10.2",
+    "request": "*"
   }
 }

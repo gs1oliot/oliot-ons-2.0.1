@@ -5,7 +5,7 @@ var	rest = require("./rest");
 
 var request = require('request');
 
-var config = require('./conf.json');
+var config = require('./config/conf.json');
 
 var ons_api_address = config.ONS_API_ADDRESS;
 

@@ -23,7 +23,6 @@ var pdns = require('pdns')(config);*/
 
 var	passport = require('passport');
 
-var config = require('./conf.json');
 
 // all environments
 app.set('port', process.env.PORT || 4000);

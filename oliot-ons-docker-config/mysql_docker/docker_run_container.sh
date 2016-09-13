@@ -1,1 +1,1 @@
-docker run -d --name backend_mysql -e MYSQL_ROOT_PASSWORD=root_password -e MYSQL_DATABASE=your_db_name -e MYSQL_USER=your_id -e MYSQL_PASSWORD=your_password -v $project_folder(modify this)/data:/var/lib/mysql -p 3306:3306 mysql:5.5
+docker run -d --name backend_mysql -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=powerdns -e MYSQL_USER=poweruser -e MYSQL_PASSWORD=password -v $HOME/oliot-ons-1.1/oliot-ons-docker-config/mysql_docker/data:/var/lib/mysql -p 3306:3306 backend_ons
