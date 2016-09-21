@@ -1,0 +1,10 @@
+{
+    "PG_ID": "postgres",
+    "PG_PW": "(modify:your_password)",
+    "PG_ADDRESS": "(modify:postgreSQL_address)",
+    "PG_PORT": 5432,
+    "PG_DB": "object_name_service",
+    "NEO_ID": "neo4j",
+    "NEO_PW": "(modify:your_password)",
+    "NEO_ADDRESS": "(modify:neo4j_address):7474"
+}
