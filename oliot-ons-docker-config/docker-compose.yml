@@ -1,0 +1,52 @@
+version: '2'
+services:
+  mysql:
+    container_name: backend_mysql
+    image: mysql:5.5
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: powerdns
+      MYSQL_USER: poweruser
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ${PWD}/mysql_docker/data:/var/lib/mysql
+      - ${PWD}/mysql_docker/mysql_create.sql:/docker-entrypoint-initdb.d/mysql_create.sql
+  neo4j:
+    container_name: acl_neo4j
+    image: neo4j:3.0
+    environment:
+      NEO4J_AUTH: neo4j/password
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+      - "7473:7473"
+    volumes:
+      - ${PWD}/neo4j_docker/data:/data
+  pdns:
+    container_name: powerdns
+    image: sath89/pdns-mysql
+    environment:
+      MYSQL_HOST: backend_mysql
+      MYSQL_DBNAME: powerdns
+      MYSQL_DBUSER: poweruser
+      MYSQL_DBPASS: password
+    links:
+      - mysql:backend_mysql
+    depends_on:
+      - mysql
+    volumes:
+      - ${PWD}/wait-for-it.sh:/bin/wait-for-it.sh
+    command: ["./bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=5", "--", "/etc/init.d/pdns", "monitor"]
+  auth_ons:
+    container_name: auth_postgre
+    image: postgres:9.4
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: object_name_service
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${PWD}/postgre_docker/data:/var/lib/postgresql/data
+      - ${PWD}/postgre_docker/schema.sql:/docker-entrypoint-initdb.d/schema.sql
