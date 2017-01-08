@@ -11,8 +11,8 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ${PWD}/mysql_docker/data:/var/lib/mysql
-      - ${PWD}/mysql_docker/mysql_create.sql:/docker-entrypoint-initdb.d/mysql_create.sql
+      - ${PWD}/ons-data/mysql/data:/var/lib/mysql
+      - ${PWD}/ons-data/mysql/mysql_create.sql:/docker-entrypoint-initdb.d/mysql_create.sql
   neo4j:
     container_name: acl_neo4j
     image: neo4j:3.0
@@ -23,7 +23,7 @@ services:
       - "7687:7687"
       - "7473:7473"
     volumes:
-      - ${PWD}/neo4j_docker/data:/data
+      - ${PWD}/ons-data/neo4j/data:/data
   pdns:
     container_name: powerdns
     image: sath89/pdns-mysql
@@ -37,7 +37,7 @@ services:
     depends_on:
       - mysql
     volumes:
-      - ${PWD}/wait-for-it.sh:/bin/wait-for-it.sh
+      - ${PWD}/ons-data/wait-for-it.sh:/bin/wait-for-it.sh
     command: ["./bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=5", "--", "/etc/init.d/pdns", "monitor"]
   auth_ons:
     container_name: auth_postgre
@@ -48,5 +48,5 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ${PWD}/postgre_docker/data:/var/lib/postgresql/data
-      - ${PWD}/postgre_docker/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ${PWD}/ons-data/postgre/data:/var/lib/postgresql/data
+      - ${PWD}/ons-data/postgre/schema.sql:/docker-entrypoint-initdb.d/schema.sql
