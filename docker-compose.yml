@@ -38,7 +38,7 @@ services:
       - mysql
     volumes:
       - ${PWD}/ons-data/wait-for-it.sh:/bin/wait-for-it.sh
-    command: ["./bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=5", "--", "/etc/init.d/pdns", "monitor"]
+    command: ["/bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=5", "--", "/etc/init.d/pdns", "monitor"]
   auth_ons:
     container_name: auth_postgre
     image: postgres:9.4
@@ -52,21 +52,33 @@ services:
       - ${PWD}/ons-data/postgre/schema.sql:/docker-entrypoint-initdb.d/schema.sql
   db_api:
     container_name: db_api
-    build: ./db-api
+    build:
+      context: ./db-api
+      dockerfile: Dockerfile
     volumes:
       - ${PWD}/ons-data/conf/db-api:/usr/src/app/config
     ports:
       - "4002:4002"
   web_api:
     container_name: web_api
-    build: ./web-api
+    build:
+      context: ./web-api
+      dockerfile: Dockerfile
+    links:
+      - neo4j:acl_neo4j
+    depends_on:
+      - neo4j
     volumes:
       - ${PWD}/ons-data/conf/web-api:/usr/src/app/config
+      - ${PWD}/ons-data/wait-for-it.sh:/bin/wait-for-it.sh
     ports:
       - "4001:4001"
+    command: ["/bin/wait-for-it.sh", "acl_neo4j:7474", "--timeout=30", "--", "node", "ons_api_app.js"]
   web_app:
-    container_name: web_app
-    build: ./web-app
+    container_name: web-app
+    build:
+      context: ./web-app
+      dockerfile: Dockerfile
     volumes:
       - ${PWD}/ons-data/conf/web-app:/usr/src/app/config
     ports:
