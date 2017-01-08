@@ -50,3 +50,24 @@ services:
     volumes:
       - ${PWD}/ons-data/postgre/data:/var/lib/postgresql/data
       - ${PWD}/ons-data/postgre/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+  ons_db_api:
+    container_name: node_ons_db_api
+    build: ./db-api
+    volumes:
+      - ${PWD}/ons-data/conf/db-api:/usr/src/app/config
+    ports:
+      - "4002:4002"
+  ons_web_api:
+    container_name: node_ons_web_api
+    build: ./web-api
+    volumes:
+      - ${PWD}/ons-data/conf/web-api:/usr/src/app/config
+    ports:
+      - "4001:4001"
+  ons_web_app:
+    container_name: node_ons_web_app
+    build: ./web-app
+    volumes:
+      - ${PWD}/ons-data/conf/web-app:/usr/src/app/config
+    ports:
+      - "4000:4000"
