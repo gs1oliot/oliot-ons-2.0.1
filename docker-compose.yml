@@ -33,6 +33,9 @@ services:
       MYSQL_DBNAME: powerdns
       MYSQL_DBUSER: poweruser
       MYSQL_DBPASS: password
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
     links:
       - mysql:backend_mysql
     depends_on:
