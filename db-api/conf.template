@@ -1,0 +1,13 @@
+{
+    "PG_ID": "${POSTGRES_USER}",
+    "PG_PW": "${POSTGRES_PASSWORD}",
+    "PG_ADDRESS": "auth_postgre",
+    "PG_PORT": 5432,
+    "PG_DB": "${POSTGRES_DATABASE}",
+    "dbUsername": "${MYSQL_USER}",
+    "dbPassword": "${MYSQL_PASSWORD}",
+    "dbName": "${MYSQL_DATABASE}",
+    "dbHost": "backend_mysql",
+    "dbPort": 3306,
+    "BACKUP_EXPIRATION": 500000
+}

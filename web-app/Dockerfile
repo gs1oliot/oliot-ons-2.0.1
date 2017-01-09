@@ -1,4 +1,5 @@
 FROM node:4-onbuild
 
-EXPOSE 4001
+ADD ./conf.json /usr/src/app/config/conf.json
 
+EXPOSE 4001
