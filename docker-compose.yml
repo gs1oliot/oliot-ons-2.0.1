@@ -24,6 +24,7 @@ services:
       - "7473:7473"
     volumes:
       - ${PWD}/ons-data/neo4j/data:/data
+      - ${PWD}/ons-data/neo4j/logs:/logs
   pdns:
     container_name: powerdns
     image: sath89/pdns-mysql

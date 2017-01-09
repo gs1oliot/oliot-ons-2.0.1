@@ -1,13 +1,13 @@
 {
     "PG_ID": "postgres",
     "PG_PW": "password",
-    "PG_ADDRESS": "127.0.0.1",
+    "PG_ADDRESS": "auth_postgre",
     "PG_PORT": 5432,
     "PG_DB": "object_name_service",
     "dbUsername": "poweruser",
     "dbPassword": "password",
     "dbName": "powerdns",
-    "dbHost": "127.0.0.1",
+    "dbHost": "backend_mysql",
     "dbPort": 3306,
     "BACKUP_EXPIRATION": 500000
 }

@@ -1,4 +1,4 @@
 {
-	"ONS_API_ADDRESS": "http://(modify:oliot-ons-web-api_address):4001"
+	"ONS_API_ADDRESS": "http://web_api:4001"
 }
 
