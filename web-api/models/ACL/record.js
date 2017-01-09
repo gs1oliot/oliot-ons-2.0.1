@@ -352,6 +352,7 @@ Record.create = function (props, callback) {
     });
 };
 
+/*
 // Static initialization:
 
 // Register our unique recordname constraint.
@@ -370,3 +371,4 @@ db.createConstraint({
         // Constraint already present; no need to log anything.
     }
 });
+*/

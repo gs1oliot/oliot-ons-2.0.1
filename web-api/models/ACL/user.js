@@ -724,6 +724,7 @@ User.create = function (props, callback) {
     });
 };
 
+/*
 // Static initialization:
 
 // Register our unique username constraint.
@@ -742,3 +743,4 @@ db.createConstraint({
         // Constraint already present; no need to log anything.
     }
 });
+*/
