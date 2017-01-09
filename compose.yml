@@ -42,7 +42,7 @@ services:
       - mysql
     volumes:
       - ${PWD}/ons-data/wait-for-it.sh:/bin/wait-for-it.sh
-    command: ["/bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=5", "--", "/etc/init.d/pdns", "monitor"]
+    command: ["/bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=30", "--", "/etc/init.d/pdns", "monitor"]
   auth_ons:
     container_name: auth_postgre
     image: postgres:9.4
