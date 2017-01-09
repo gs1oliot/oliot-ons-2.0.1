@@ -506,6 +506,7 @@ Server.create = function (props, callback) {
     });
 };
 
+/*
 // Static initialization:
 
 // Register our unique servername constraint.
@@ -524,3 +525,4 @@ db.createConstraint({
         // Constraint already present; no need to log anything.
     }
 });
+*/

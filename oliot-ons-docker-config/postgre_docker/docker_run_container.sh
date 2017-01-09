@@ -1,1 +1,0 @@
-docker run -d --name auth_postgre -e POSTGRES_PASSWORD=password -e POSTGRES_DB=object_name_service -v $HOME/oliot-ons-1.1/oliot-ons-docker-config/postgre_docker/data:/var/lib/postgresql/data  -p 5432:5432 auth_ons
