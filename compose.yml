@@ -4,10 +4,10 @@ services:
     container_name: backend_mysql
     image: mysql:5.5
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: powerdns
-      MYSQL_USER: poweruser
-      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -17,7 +17,7 @@ services:
     container_name: acl_neo4j
     image: neo4j:3.0
     environment:
-      NEO4J_AUTH: neo4j/password
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -30,9 +30,9 @@ services:
     image: sath89/pdns-mysql
     environment:
       MYSQL_HOST: backend_mysql
-      MYSQL_DBNAME: powerdns
-      MYSQL_DBUSER: poweruser
-      MYSQL_DBPASS: password
+      MYSQL_DBNAME: ${MYSQL_DATABASE}
+      MYSQL_DBUSER: ${MYSQL_USER}
+      MYSQL_DBPASS: ${MYSQL_PASSWORD}
     ports:
       - "53:53/tcp"
       - "53:53/udp"
@@ -42,13 +42,13 @@ services:
       - mysql
     volumes:
       - ${PWD}/ons-data/wait-for-it.sh:/bin/wait-for-it.sh
-    command: ["/bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=5", "--", "/etc/init.d/pdns", "monitor"]
+    command: ["/bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=30", "--", "/etc/init.d/pdns", "monitor"]
   auth_ons:
     container_name: auth_postgre
     image: postgres:9.4
     environment:
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: object_name_service
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DATABASE}
     ports:
       - "5432:5432"
     volumes:
@@ -59,8 +59,6 @@ services:
     build:
       context: ./db-api
       dockerfile: Dockerfile
-    volumes:
-      - ${PWD}/ons-data/conf/db-api:/usr/src/app/config
     ports:
       - "4002:4002"
   web_api:
@@ -73,7 +71,6 @@ services:
     depends_on:
       - neo4j
     volumes:
-      - ${PWD}/ons-data/conf/web-api:/usr/src/app/config
       - ${PWD}/ons-data/wait-for-it.sh:/bin/wait-for-it.sh
     ports:
       - "4001:4001"
@@ -83,7 +80,5 @@ services:
     build:
       context: ./web-app
       dockerfile: Dockerfile
-    volumes:
-      - ${PWD}/ons-data/conf/web-app:/usr/src/app/config
     ports:
       - "4000:4000"
