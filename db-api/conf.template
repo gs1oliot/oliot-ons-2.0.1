@@ -1,7 +1,7 @@
 {
     "PG_ID": "${POSTGRES_USER}",
     "PG_PW": "${POSTGRES_PASSWORD}",
-    "PG_ADDRESS": "auth_postgre",
+    "PG_ADDRESS": "${POSTGRES_HOST}",
     "PG_PORT": 5432,
     "PG_DB": "${POSTGRES_DATABASE}",
     "dbUsername": "${MYSQL_USER}",

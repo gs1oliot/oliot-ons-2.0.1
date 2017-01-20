@@ -1,18 +1,5 @@
 version: '2'
 services:
-  mysql:
-    container_name: backend_mysql
-    image: mysql:5.5
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
-    volumes:
-      - ${PWD}/ons-data/mysql/data:/var/lib/mysql
-      - ${PWD}/ons-data/mysql/mysql_create.sql:/docker-entrypoint-initdb.d/mysql_create.sql
   neo4j:
     container_name: acl_neo4j
     image: neo4j:3.0
@@ -25,24 +12,6 @@ services:
     volumes:
       - ${PWD}/ons-data/neo4j/data:/data
       - ${PWD}/ons-data/neo4j/logs:/logs
-  pdns:
-    container_name: powerdns
-    image: sath89/pdns-mysql
-    environment:
-      MYSQL_HOST: backend_mysql
-      MYSQL_DBNAME: ${MYSQL_DATABASE}
-      MYSQL_DBUSER: ${MYSQL_USER}
-      MYSQL_DBPASS: ${MYSQL_PASSWORD}
-    ports:
-      - "53:53/tcp"
-      - "53:53/udp"
-    links:
-      - mysql:backend_mysql
-    depends_on:
-      - mysql
-    volumes:
-      - ${PWD}/ons-data/wait-for-it.sh:/bin/wait-for-it.sh
-    command: ["/bin/wait-for-it.sh", "backend_mysql:3306", "--timeout=30", "--", "/etc/init.d/pdns", "monitor"]
   auth_ons:
     container_name: auth_postgre
     image: postgres:9.4
@@ -54,13 +23,6 @@ services:
     volumes:
       - ${PWD}/ons-data/postgre/data:/var/lib/postgresql/data
       - ${PWD}/ons-data/postgre/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-  db_api:
-    container_name: db_api
-    build:
-      context: ./db-api
-      dockerfile: Dockerfile
-    ports:
-      - "4002:4002"
   web_api:
     container_name: web_api
     build:
