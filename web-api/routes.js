@@ -11,14 +11,6 @@ var bodyParser = require('body-parser'),
 
 var config = require('./config/conf.json');
 
-/*var pdns_config = {
-		  adapter: "mysql",
-		  db: "powerdns",
-		  user: "root",
-		  password: "resl18519",
-		  host: "143.248.56.192"
-		};
-
 var pdns = require('pdns')(pdns_config);
 
 //pdns.domains.add({name: "test.com"}, {soa:true, ns:true}, function(err, res) {console.log(res);});
