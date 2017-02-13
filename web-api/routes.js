@@ -13,9 +13,6 @@ var config = require('./config/conf.json');
 
 var pdns = require('pdns')(pdns_config);
 
-//pdns.domains.add({name: "test.com"}, {soa:true, ns:true}, function(err, res) {console.log(res);});
-pdns.domains.list({}, {}, function(err, domains) {console.log(domains)});*/
-
 
 exports.configure = function (app) {	
 	 
