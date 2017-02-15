@@ -11,8 +11,6 @@ var bodyParser = require('body-parser'),
 
 var config = require('./config/conf.json');
 
-var pdns = require('pdns')(pdns_config);
-
 
 exports.configure = function (app) {	
 	 
