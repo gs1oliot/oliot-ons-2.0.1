@@ -10,7 +10,7 @@ var config = require('../../config/conf.json');
 var mysql = require('mysql');
 var neo4j_url = "http://"+config.NEO_ID+":"+config.NEO_PW+"@"+config.NEO_ADDRESS;
 var rest = require('../../rest');
-
+var cachedb = require('../cachedb');
 
 
 var db = new neo4j.GraphDatabase({
@@ -284,35 +284,48 @@ Domain.prototype.un_delegate = function (other, callback) {
 };
 
 
-Domain.prototype.isExceededBound = function (other, bound, callback) {
-	if(bound === 0){
-		return callback(null, {result: 'no'});
-	}
-    var query = [
-        'MATCH (domain:Domain {domainname: {thisDomainname}})',
-        'MATCH (other:Company {companyname: {otherCompanyname}})',
-        'MATCH (domain) -[:delegate]-> (other) -[:delegator_of]-> (record: Record) <-[:have]- (domain)',
-        'RETURN count(DISTINCT record)',
-    ].join('\n');
-
-    var params = {
-    	thisDomainname: this.domainname,
-        otherCompanyname: other.companyname,
-    };
-
-    db.cypher({
-        query: query,
-        params: params,
-    }, function (err, results) {
-    	if(err){
-    		return callback(err);
-    	}
-    	if(results[0]['count(DISTINCT record)'] >= bound){
-    		return callback(null, {result: 'yes'});
-    	} else{
-    		return callback(null, {result: 'no'});
-    	}
-    });
+Domain.isExceededBound = function (companyname, domainname, callback) {
+	cachedb.loadCachedData(companyname+':'+domainname+':isBounded', function(err, results){
+		if(results && JSON.parse(results).result){
+			//console.log("cache hit for :"+companyname+':'+domainname+':isBounded');
+			cachedb.setExpire(companyname+':'+domainname+':isBounded', config.REDIS_DEFAULT_EXPIRE);
+			if(JSON.parse(results).result === 'no'){
+	    		return callback(null, {result: 'no'});
+			}
+		}
+	    var query = [
+	        'MATCH (domain:Domain {domainname: {thisDomainname}})',
+	        'MATCH (other:Company {companyname: {otherCompanyname}})',
+	        'MATCH (domain) -[rel:delegate]-> (other) -[:delegator_of]-> (record: Record) <-[:have]- (domain)',
+	        'RETURN count(DISTINCT record), rel.bound',
+	    ].join('\n');
+	
+	    var params = {
+	    	thisDomainname: domainname,
+	        otherCompanyname: companyname,
+	    };
+	
+	    db.cypher({
+	        query: query,
+	        params: params,
+	    }, function (err, results) {
+	    	if(err){
+	    		return callback(err);
+	    	}
+		    if(results.length){
+		    	if(results[0]['rel.bound']===0 ){
+			    	cachedb.cacheDataWithExpire(companyname+':'+domainname+':isBounded', JSON.stringify({result: 'no'}), config.REDIS_DEFAULT_EXPIRE);
+		    		return callback(null, {result: 'no'});
+		    	} else if(results[0]['count(DISTINCT record)'] < results[0]['rel.bound']){
+		    		return callback(null, {result: 'no'});
+		    	} else{
+		    		return callback(null, {result: 'yes'});
+		    	}
+	    	} else{
+	    		return callback(null, {result: 'no'});
+	    	}
+	    });
+	});
 };
 
 
@@ -470,31 +483,39 @@ Domain.getHave = function (domainname, callback) {
 
 Domain.getMapped = function (domainname, callback) {
 
-    // Query all domains and whether we follow each one or not:
-    var query = [
-        'MATCH (domain:Domain {domainname: {thisDomainname}})<-[:map]-(server:Server)',
-        'RETURN server', // COUNT(rel) is a hack for 1 or 0
-    ].join('\n');
-
-    var params = {
-        thisDomainname: domainname,
-    };
-
-    var domain = this;
-    db.cypher({
-        query: query,
-        params: params,
-    }, function (err, results) {
-        if (err) {
-        	return callback(err);
-        }
-
-        if (!results.length) {
-            err = new Error('No servers are mapped to domain: ' + domainname);
-            return callback(err);
-        }
-        callback(null, results[0].server.properties);
-    });
+	cachedb.loadCachedData(domainname+':mappedServer', function(err, results){
+		if(results){
+			//console.log("cache hit for :"+companyname+':'+domainname+':isBounded');
+			cachedb.setExpire(domainname+':mappedServer', config.REDIS_DEFAULT_EXPIRE);
+	    	return callback(null, JSON.parse(results));
+		}
+	    // Query all domains and whether we follow each one or not:
+	    var query = [
+	        'MATCH (domain:Domain {domainname: {thisDomainname}})<-[:map]-(server:Server)',
+	        'RETURN server', // COUNT(rel) is a hack for 1 or 0
+	    ].join('\n');
+	
+	    var params = {
+	        thisDomainname: domainname,
+	    };
+	
+	    var domain = this;
+	    db.cypher({
+	        query: query,
+	        params: params,
+	    }, function (err, results) {
+	        if (err) {
+	        	return callback(err);
+	        }
+	
+	        if (!results.length) {
+	            err = new Error('No servers are mapped to domain: ' + domainname);
+	            return callback(err);
+	        }
+	    	cachedb.cacheDataWithExpire(domainname+':mappedServer', JSON.stringify(results[0].server.properties), config.REDIS_DEFAULT_EXPIRE);
+	        callback(null, results[0].server.properties);
+	    });
+	});
 };
 
 
@@ -506,7 +527,7 @@ Domain.getRecords = function (domainname, token, callback) {
         	return callback(err);
         }
 		var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-		rest.postOperation("http://"+server.servername, "records/list", null, token, null, args, function (error, response) {
+		rest.getOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 			if (error) {
 	        	return callback(error);
 			} 
@@ -565,7 +586,7 @@ Domain.editRecords = function (domainname, editRecords, token, callback) {
         }
 			
 		var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-		rest.postOperation("http://"+server.servername, "records/list", null, token, null, args, function (error, response) {
+		rest.getOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
 			} 
@@ -604,7 +625,7 @@ Domain.editRecords = function (domainname, editRecords, token, callback) {
 					};
 					var argsJson = {domainname:domainname, record:recordJson, id:editRecords[i].id, dbUsername:server.dbUsername, dbPassword: server.dbPassword};
 					var args=JSON.stringify(argsJson);
-					rest.postOperation("http://"+server.servername, "records/edit", null, token, null, args, function (error, response) {
+					rest.putOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 						if (error) {
 							var arrMsg = error.split(' ');
 							if(arrMsg[0] !== 'Duplicate' || arrMsg[1] !== 'entry'){
@@ -632,7 +653,7 @@ Domain.editDelegatedRecords = function (domainname, editRecords, token, callback
         	return callback(err);
         }
 		var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-		rest.postOperation("http://"+server.servername, "records/list", null, token, null, args, function (error, response) {
+		rest.getOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
 			}
@@ -671,7 +692,7 @@ Domain.editDelegatedRecords = function (domainname, editRecords, token, callback
 					};
 					var argsJson = {domainname:domainname, id:editRecords[i].id, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 					var args=JSON.stringify(argsJson);
-					rest.postOperation("http://"+server.servername, "records/edit", null, token, null, args, function (error, response) {
+					rest.putOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 						if (error) {
 							var arrMsg = error.split(' ');
 							if(arrMsg[0] !== 'Duplicate' || arrMsg[1] !== 'entry'){
@@ -721,32 +742,20 @@ Domain.newRecords = function (domainname, newRecords, token, callback) {
         	return callback(err);
         }
 
-		
-		var addCount = 0;
-		
-		for(var i =0; i < newRecords.length;++i){
-			
-			var recordJson = { 
-					name: newRecords[i].name, 
-					type: newRecords[i].type,
-					content: newRecords[i].content,
-					ttl: newRecords[i].ttl,
-				};
-			var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
-			var args = JSON.stringify(argsJson);
-			rest.postOperation("http://"+server.servername, "records/add", null, token, null, args, function (error, response) {
-				if (error) {
-					var arrMsg = error.split(' ');
-					if(arrMsg[0] !== 'Duplicate' || arrMsg[1] !== 'entry'){
-						return callback(error);
-					}
-				}
-				addCount++;
-				if(addCount === newRecords.length){
-					return callback(null);
-				}
-			});
-		}
+		var recordJson = { 
+				name: newRecords.name, 
+				type: newRecords.type,
+				content: newRecords.content,
+				ttl: newRecords.ttl,
+			};
+		var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
+		var args = JSON.stringify(argsJson);
+		rest.postOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+			if (error) {
+				return callback(err);
+			}
+			return callback(null, response.recordId);
+		});
 	});
 };
 
@@ -770,7 +779,7 @@ Domain.removeRecordAndHave = function (domainname, recordname, recordid, token, 
 			
 			var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 			var args=JSON.stringify(argsJson);
-			rest.postOperation("http://"+server.servername, "records/remove", null, token, null, args, function (error, response) {
+			rest.delOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 				if (error) {
 			       	return callback(error);
 				}
@@ -802,7 +811,7 @@ Domain.removeAllRecordAndHave = function (domainname, token, callback) {
 				return callback(err);
 			}	
 			var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-			rest.postOperation("http://"+server.servername, "records/list", null, token, null, args, function (error, response) {
+			rest.getOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 				if (error) {
 			       	return callback(error);
 				}
@@ -814,7 +823,7 @@ Domain.removeAllRecordAndHave = function (domainname, token, callback) {
 						var recordJson = {name:records[i].name, type:records[i].type, content: records[i].content};
 						var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 						var args=JSON.stringify(argsJson);
-						rest.postOperation("http://"+server.servername, "records/remove", null, token, null, args, function (error, response) {
+						rest.delOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 							if (error) {
 						       	return callback(error);
 							}
@@ -887,7 +896,7 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 								var recordJson = {name:delegatedRecords[i].recordname, type:delegatedRecords[i].recordtype, content: delegatedRecords[i].content};
 								var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 								var args=JSON.stringify(argsJson);
-								rest.postOperation("http://"+server.servername, "records/remove", null, token, null, args, function (error, response) {
+								rest.delOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
 									if (error) {
 								       	return callback(error);
 									}

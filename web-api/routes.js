@@ -101,6 +101,16 @@ exports.configure = function (app) {
 			
 		});
 	});
+//this API should be implemented in db api
+/*	app.get('/removeAllRecords/:servername', function(req, res){
+		Record.removeAllRecordsfromServer(req.params.servername, function(err, results){
+			if (err){
+				console.log(err);
+				return res.send({error: err});
+			}
+			return res.send({result: "success"});
+		});
+	});*/
 	
 /*************************company API*************************************/	
 	app.get('/company/:companyname/owner_of', app.oauth.authorise(), function (req, res){
@@ -168,11 +178,11 @@ exports.configure = function (app) {
 			if(results.username !== req.params.companyname){
 				return res.send({error: 'you are not authenticated by username: ' + req.params.companyname});
 			}
-			Server.getDomains(req.body.servername, req.body.serverport, req.oauth.bearerToken.accessToken, req.body.dbUsername, req.body.dbPassword, function(err, domainnames){
+			Server.getDomains(req.body.servername, req.body.serverport, req.oauth.bearerToken.accessToken, req.body.dbUsername, req.body.dbPassword, req.body.dbName, function(err, domainnames){
 				if(err){
 					return res.send({ error : err});
 				}
-				Server.create({'servername':req.body.servername+':'+req.body.serverport, 'dbUsername':req.body.dbUsername,'dbPassword':req.body.dbPassword}, function(err, server){
+				Server.create({'servername':req.body.servername+':'+req.body.serverport, 'dbUsername':req.body.dbUsername,'dbPassword':req.body.dbPassword, 'dbName':req.body.dbName}, function(err, server){
 					if(err){
 						return res.send({ error : err});
 					}
@@ -229,7 +239,7 @@ exports.configure = function (app) {
 							return res.send({ error : err});
 						}
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access server:'+servername});
+							return res.send({ error : 'You do not have authority to access server:'+servername});
 						}
 						company.un_manage(server, function(err){
 							if(err) {
@@ -387,7 +397,7 @@ exports.configure = function (app) {
 									return res.send({ error : err});
 								}
 								if(response.result === 'no'){
-									return res.send({ error : 'You are not authority to access server:'+req.params.servername});
+									return res.send({ error : 'You do not have authority to access server:'+req.params.servername});
 								}
 								Server.getDelegatedDomainByCompany(company.companyname, server.servername, function(err, domains){
 									if(err){
@@ -438,7 +448,7 @@ exports.configure = function (app) {
 							return res.send({ error : err});
 						}
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access server:'+req.params.servername});
+							return res.send({ error : 'You do not have authority to access server:'+req.params.servername});
 						}
 						Server.makeDomainAndMap(servername, domainname, req.oauth.bearerToken.accessToken, function(err){
 							if(err){
@@ -490,7 +500,7 @@ exports.configure = function (app) {
 							return res.send({ error : err});
 						}
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access domain:'+domainname});
+							return res.send({ error : 'You do not have authority to access domain:'+domainname});
 						}	
 						Server.removeDomainAndMap(servername, domainname, req.oauth.bearerToken.accessToken, function(err){
 							if(err) {
@@ -536,7 +546,7 @@ exports.configure = function (app) {
 									return res.send({ error : err});
 								}
 								if(response.result === 'no'){
-									return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
+									return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
 								}
 								Domain.getRecords(req.params.domainname, req.oauth.bearerToken.accessToken, function(err, records){
 									if(err) {
@@ -553,7 +563,7 @@ exports.configure = function (app) {
 											var strArray = delegatedRecords[i].recordname.split(':');
 											delegatedId.push(strArray[1]);
 										}
-										for(var i=0; i< records.length; ++i){
+										for(i=0; i< records.length; ++i){
 											for(var j=0; j< delegatedId.length; ++j){
 												if(records[i].id.toString() === delegatedId[j])
 												{
@@ -605,33 +615,31 @@ exports.configure = function (app) {
 						if(err) {
 							return res.send({ error : err});
 						}
-						if(response.result === 'no'){
-							company.isDelegatedByDomain(domain, function(err, response){
-								if(err) {
-									return res.send({ error : err});
-								}
-								if(response.result === 'no'){
-									return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
-								}
-								if(Record.checkRecords(req.body.records)){
-									Domain.editDelegatedRecords(req.params.domainname, req.body.records, req.oauth.bearerToken.accessToken, function(err){
+						var refinedRecords = Record.refineRecords(req.params.domainname, req.body.records);
+						if(Record.checkRecords(refinedRecords)){
+							if(response.result === 'no'){
+								company.isDelegatedByDomain(domain, function(err, response){
+									if(err) {
+										return res.send({ error : err});
+									}
+									if(response.result === 'no'){
+										return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+									}
+									Domain.editDelegatedRecords(req.params.domainname, refinedRecords, req.oauth.bearerToken.accessToken, function(err){
 										if(err) {
 											return res.send({ error : err});
 										}
 										res.send({result: "success"});
 									});
-								} else{
-									return res.send({ error : "one of records makes syntax error"});
-								}
-							});
-						}
-						else if(Record.checkRecords(req.body.records)){
-							Domain.editRecords(req.params.domainname, req.body.records, req.oauth.bearerToken.accessToken, function(err){
-								if(err) {
-									return res.send({ error : err});
-								}
-								res.send({result: "success"});
-							});
+								});
+							} else {
+								Domain.editRecords(req.params.domainname, refinedRecords, req.oauth.bearerToken.accessToken, function(err){
+									if(err) {
+										return res.send({ error : err});
+									}
+									res.send({result: "success"});
+								});
+							}
 						} else{
 							return res.send({ error : "one of records makes syntax error"});
 						}
@@ -652,78 +660,58 @@ exports.configure = function (app) {
 				return res.send({error: 'you are not authenticated by username: ' + req.params.companyname});
 			}
 			
-			Company.get(req.params.companyname, function(err, company){
+			Company.getCompanyOwnerOfDomain(req.params.companyname, req.params.domainname, function(err, type){
 				if(err) {
 					return res.send({ error : err});
 				}
-				Domain.get(req.params.domainname, function(err, domain){
-					if(err) {
-						return res.send({ error : err});
-					}
-					company.is_owner_of(domain, function(err, response){
-						if(err) {
-							return res.send({ error : err});
-						}
-						var refinedRecords = Record.refineRecords(req.params.domainname, req.body.records);
-						if(Record.checkRecords(refinedRecords)){
-							if(response.result === 'no'){
-								company.isDelegatedByDomain(domain, function(err, response){
+				if(type !== 'no'){
+					var refinedRecords = Record.refineRecords(req.params.domainname, req.body.records);
+					if(Record.checkRecords(refinedRecords)){
+						if(type === 'delegator'){
+							Domain.isExceededBound(req.params.companyname, req.params.domainname, function(err, response){
+								if(err) {
+									return res.send({ error : err});
+								}
+								if(response.result !== 'no'){
+									return res.send({ error : 'Number of delegated records reaches to maximum'});
+								}
+								Domain.newRecords(req.params.domainname, refinedRecords[0], req.oauth.bearerToken.accessToken, function(err, recordId){
 									if(err) {
-										return res.send({ error : err});
-									}
-									if(response.result === 'no'){
-										return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
-									}
-									domain.isExceededBound(company, response.bound, function(err, response){
-										if(err) {
+										var arrMsg = error.split(' ');
+										if(arrMsg[0]!=='ER_DUP_ENTRY:'){
+											console.log(err)
 											return res.send({ error : err});
 										}
-										if(response.result !== 'no'){
-											return res.send({ error : 'Number of delegated records reaches to maximum'});
-										}	
-										Domain.newRecords(req.params.domainname, refinedRecords, req.oauth.bearerToken.accessToken, function(err){
-											if(err) {
-												return res.send({ error : err});
-											}
-											Domain.getRecords(req.params.domainname, req.oauth.bearerToken.accessToken, function(err, response) {
-												if(err) {
-													return res.send({ error : err});
-												}
-												var addCount = 0;
-												for(var i =0; i< response.length; ++i){
-													for(var j =0; j< refinedRecords.length; ++j){
-														if(response[i].name === refinedRecords[j].name
-															&& response[i].type === refinedRecords[j].type
-															&& response[i].content === refinedRecords[j].content) {
-															Record.createAndMakeRelationships(refinedRecords[j].name+':'+response[i].id, refinedRecords[j].type, refinedRecords[j].content, domain, company, function(err){
-																if(err) {
-																	return res.send({ error : err});
-																}
-																++ addCount;
-																if(addCount === refinedRecords.length){
-																	return res.send({result: "success"});
-																}
-															});
-														}
-													}
-												}
-											});
-										});
-									}); 
-								});
-							} else {
-								Domain.newRecords(req.params.domainname, refinedRecords, req.oauth.bearerToken.accessToken, function(err){
-									if(err) {
-										return res.send({ error : err});
 									}
 									res.send({result: "success"});
+									Record.createAndMakeRelationships(refinedRecords[0].name+':'+recordId, refinedRecords[0].type, refinedRecords[0].content, req.params.domainname, req.params.companyname, function(err){
+										if(err && err.neo4j.code !== 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+											console.log(err)
+											return res.send({ error : err});
+										}
+										return ;
+									});
 								});
-							}
-						} else{
-							return res.send({ error : "one of records makes syntax error"});
+							}); 
+						} else {
+							Domain.newRecords(req.params.domainname, refinedRecords[0], req.oauth.bearerToken.accessToken, function(err, recordId){
+								if(err) {
+									var arrMsg = error.split(' ');
+									if(arrMsg[0]!=='ER_DUP_ENTRY:'){
+										//console.log(err.neo4j)
+										return res.send({ error : err});
+									}
+								}
+								return res.send({result: "success"});
+							});
+							//res.send({result: "success"});
 						}
-					});
-				});
+					} else{
+						return res.send({ error : "one of records makes syntax error"});
+					}
+				}else{
+					return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+				}
 			});
 		});
 	});
@@ -753,7 +741,7 @@ exports.configure = function (app) {
 						}
 
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
+							return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
 						}
 						Company.get(req.body.companyname, function(err, otherCompany){
 							if(err) {
@@ -797,7 +785,7 @@ exports.configure = function (app) {
 						}
 
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
+							return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
 						}
 						Company.get(req.body.companyname, function(err, otherCompany){
 							if(err) {
@@ -853,7 +841,7 @@ exports.configure = function (app) {
 										return res.send({ error : err});
 									}
 									if(response.result === 'no'){
-										return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
+										return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
 									}
 									Domain.removeRecordAndHave(domainname, recordname, recordid, req.oauth.bearerToken.accessToken, function(err){
 										if(err) {
@@ -903,7 +891,7 @@ exports.configure = function (app) {
 							return res.send({ error : err});
 						}
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to remove all records in domain:'+req.params.domainname});
+							return res.send({ error : 'You do not have authority to remove all records in domain:'+req.params.domainname});
 						} 
 						Domain.removeAllRecordAndHave(domainname, req.oauth.bearerToken.accessToken, function(err){
 							if(err) {
@@ -982,7 +970,7 @@ exports.configure = function (app) {
 							return res.send({ error : err});
 						}
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access server:'+servername});
+							return res.send({ error : 'You do not have authority to access server:'+servername});
 						}
 						company.un_manage(server, function(err){
 							if(err) {
@@ -1034,22 +1022,26 @@ exports.configure = function (app) {
 			if(results.username !== req.params.username){
 				return res.send({error: 'you are not authenticated by username: ' + req.params.username});
 			}
-			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company){
+			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company, type){
 				if(err) {
 					return res.send({ error : err});
 				}
-				Domain.get(req.params.domainname, function(err, domain){
-					if(err) {
-						return res.send({ error : err});
-					}
-				
-					domain.getDelegatorAndOthers(company, function (err, delegators, others){
+				if(company){
+					Domain.get(req.params.domainname, function(err, domain){
 						if(err) {
-							return res.send({error: err});
+							return res.send({ error : err});
 						}
-						res.send({delegators: delegators, others: others});
+				
+						domain.getDelegatorAndOthers(company, function (err, delegators, others){
+							if(err) {
+								return res.send({error: err});
+							}
+							res.send({delegators: delegators, others: others});
+						});
 					});
-				});
+				} else {
+					return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+				}
 			});
 		});
 	});
@@ -1082,7 +1074,7 @@ exports.configure = function (app) {
 									return res.send({ error : err});
 								}
 								if(response.result === 'no'){
-									return res.send({ error : 'You are not authority to access server:'+req.params.servername});
+									return res.send({ error : 'You do not have authority to access server:'+req.params.servername});
 								}
 								Server.getDelegatedDomainByCompany(company.companyname, server.servername, function(err, domains){
 									if(err){
@@ -1133,7 +1125,7 @@ exports.configure = function (app) {
 							return res.send({ error : err});
 						}
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access server:'+req.params.servername});
+							return res.send({ error : 'You do not have authority to access server:'+req.params.servername});
 						}
 						Server.makeDomainAndMap(servername, domainname, req.oauth.bearerToken.accessToken, function(err){
 							if(err){
@@ -1186,7 +1178,7 @@ exports.configure = function (app) {
 							return res.send({ error : err});
 						}
 						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access domain:'+domainname});
+							return res.send({ error : 'You do not have authority to access domain:'+domainname});
 						}	
 						Server.removeDomainAndMap(servername, domainname, req.oauth.bearerToken.accessToken, function(err){
 							if(err) {
@@ -1209,26 +1201,22 @@ exports.configure = function (app) {
 			if(results.username !== req.params.username){
 				return res.send({error: 'you are not authenticated by username: ' + req.params.username});
 			}
-			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company){
+			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company, type){
 				if(err) {
 					return res.send({ error : err});
 				}
-
-				Domain.get(req.params.domainname, function(err, domain){
-					if(err) {
-						return res.send({ error : err});
-					}
-					company.is_owner_of(domain, function(err, response){
+				if(company){
+					Domain.get(req.params.domainname, function(err, domain){
 						if(err) {
 							return res.send({ error : err});
 						}
-						if(response.result === 'no'){
-							company.isDelegatedByDomain(domain, function(err, response){
+						company.is_owner_of(domain, function(err, response){
+							if(err) {
+								return res.send({ error : err});
+							}
+							if(response.result === 'no'){
 								if(err) {
 									return res.send({ error : err});
-								}
-								if(response.result === 'no'){
-									return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
 								}
 								Domain.getRecords(req.params.domainname, req.oauth.bearerToken.accessToken, function(err, records){
 									if(err) {
@@ -1244,7 +1232,7 @@ exports.configure = function (app) {
 											var strArray = delegatedRecords[i].recordname.split(':');
 											delegatedId.push(strArray[1]);
 										}
-										for(var i=0; i< records.length; ++i){
+										for(i=0; i< records.length; ++i){
 											for(var j=0; j< delegatedId.length; ++j){
 												if(records[i].id.toString() === delegatedId[j])
 												{
@@ -1259,18 +1247,20 @@ exports.configure = function (app) {
 										res.send({owner: 'no', records: records, delegatedRecords: delegatedRecords});
 									});
 								});
-							});
-						}
-						else {
-							Domain.getRecords(req.params.domainname, req.oauth.bearerToken.accessToken, function(err, records){
-								if(err) {
-									return res.send({ error : err});
-								}
-								res.send({owner: 'yes', records: records, delegatedRecords: []});
-							});
-						}
+							}
+							else {
+								Domain.getRecords(req.params.domainname, req.oauth.bearerToken.accessToken, function(err, records){
+									if(err) {
+										return res.send({ error : err});
+									}
+									res.send({owner: 'yes', records: records, delegatedRecords: []});
+								});
+							}
+						});
 					});
-				});
+				} else {
+					return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+				}
 			});
 		});
 	});
@@ -1285,50 +1275,44 @@ exports.configure = function (app) {
 				return res.send({error: 'you are not authenticated by username: ' + req.params.username});
 			}
 			
-			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company){
+			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company, type){
 				if(err) {
 					return res.send({ error : err});
 				}
-				Domain.get(req.params.domainname, function(err, domain){
-					if(err) {
-						return res.send({ error : err});
-					}
-					company.is_owner_of(domain, function(err, response){
+				if(company){
+					Domain.get(req.params.domainname, function(err, domain){
 						if(err) {
 							return res.send({ error : err});
 						}
-						if(response.result === 'no'){
-							company.isDelegatedByDomain(domain, function(err, response){
-								if(err) {
-									return res.send({ error : err});
-								}
+						company.is_owner_of(domain, function(err, response){
+							if(err) {
+								return res.send({ error : err});
+							}
+							var refinedRecords = Record.refineRecords(req.params.domainname, req.body.records);
+							if(Record.checkRecords(refinedRecords)){
 								if(response.result === 'no'){
-									return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
-								}
-								if(Record.checkRecords(req.body.records)){
-									Domain.editDelegatedRecords(req.params.domainname, req.body.records, req.oauth.bearerToken.accessToken, function(err){
+									Domain.editDelegatedRecords(req.params.domainname, refinedRecords, req.oauth.bearerToken.accessToken, function(err){
 										if(err) {
 											return res.send({ error : err});
 										}
 										res.send({result: "success"});
 									});
-								} else{
-									return res.send({ error : "one of records makes syntax error"});
+								} else {
+									Domain.editRecords(req.params.domainname, refinedRecords, req.oauth.bearerToken.accessToken, function(err){
+										if(err) {
+											return res.send({ error : err});
+										}
+										res.send({result: "success"});
+									});
 								}
-							});
-						}
-						else if(Record.checkRecords(req.body.records)){
-							Domain.editRecords(req.params.domainname, req.body.records, req.oauth.bearerToken.accessToken, function(err){
-								if(err) {
-									return res.send({ error : err});
-								}
-								res.send({result: "success"});
-							});
-						} else{
-							return res.send({ error : "one of records makes syntax error"});
-						}
+							} else{
+								return res.send({ error : "one of records makes syntax error"});
+							}
+						});
 					});
-				});
+				} else {
+					return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+				}
 			});
 		});
 	});
@@ -1344,77 +1328,62 @@ exports.configure = function (app) {
 				return res.send({error: 'you are not authenticated by username: ' + req.params.username});
 			}
 
-			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company){
+			User.getCompanyAdministratorOf(req.params.username, function(err, companyname){
 				if(err) {
 					return res.send({ error : err});
 				}
-				Domain.get(req.params.domainname, function(err, domain){
+				Company.getCompanyOwnerOfDomain(companyname, req.params.domainname, function(err, type){
 					if(err) {
 						return res.send({ error : err});
 					}
-					company.is_owner_of(domain, function(err, response){
-						if(err) {
-							return res.send({ error : err});
-						}
+					if(type!=='no'){
 						var refinedRecords = Record.refineRecords(req.params.domainname, req.body.records);
 						if(Record.checkRecords(refinedRecords)){
-							if(response.result === 'no'){
-								company.isDelegatedByDomain(domain, function(err, response){
+							if(type === 'delegator'){
+								Domain.isExceededBound(companyname, req.params.domainname, function(err, response){
 									if(err) {
 										return res.send({ error : err});
 									}
-									if(response.result === 'no'){
-										return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
-									}
-									domain.isExceededBound(company, response.bound, function(err, response){
+									if(response.result !== 'no'){
+										return res.send({ error : 'Number of delegated records reaches to maximum'});
+									}	
+									Domain.newRecords(req.params.domainname, refinedRecords[0], req.oauth.bearerToken.accessToken, function(err, recordId){
 										if(err) {
-											return res.send({ error : err});
-										}
-										if(response.result !== 'no'){
-											return res.send({ error : 'Number of delegated records reaches to maximum'});
-										}	
-										Domain.newRecords(req.params.domainname, refinedRecords, req.oauth.bearerToken.accessToken, function(err){
-											if(err) {
+											var arrMsg = error.split(' ');
+											if(arrMsg[0]!=='ER_DUP_ENTRY:'){
+												console.log(err);
 												return res.send({ error : err});
 											}
-											Domain.getRecords(req.params.domainname, req.oauth.bearerToken.accessToken, function(err, response) {
-												if(err) {
-													return res.send({ error : err});
-												}
-												var addCount = 0;
-												for(var i =0; i< response.length; ++i){
-													for(var j =0; j< refinedRecords.length; ++j){
-														if(response[i].name === refinedRecords[j].name
-															&& response[i].type === refinedRecords[j].type
-															&& response[i].content === refinedRecords[j].content) {
-															Record.createAndMakeRelationships(refinedRecords[j].name+':'+response[i].id, refinedRecords[j].type, refinedRecords[j].content, domain, company, function(err){
-																if(err) {
-																	return res.send({ error : err});
-																}
-																++ addCount;
-																if(addCount === refinedRecords.length){
-																	return res.send({result: "success"});
-																}
-															});
-														}
-													}
-												}
-											});
-										});
-									}); 
-								});
+										}
+										res.send({result: "success"});
+										Record.createAndMakeRelationships(refinedRecords[0].name+':'+recordId, refinedRecords[0].type, refinedRecords[0].content, req.params.domainname, companyname, function(err){
+											if(err && err.neo4j.code !== 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+												console.log(err);
+												return res.send({ error : err});
+											}
+											return ;
+										});													
+									});
+								}); 
 							} else{
-								Domain.newRecords(req.params.domainname, refinedRecords, req.oauth.bearerToken.accessToken, function(err){
+								Domain.newRecords(req.params.domainname, refinedRecords[0], req.oauth.bearerToken.accessToken, function(err, recordId){
 									if(err) {
-										return res.send({ error : err});
+										var arrMsg = error.split(' ');
+										if(arrMsg[0]!=='ER_DUP_ENTRY:'){
+											console.log(err.neo4j);
+											return res.send({ error : err});
+										}
 									}
-									res.send({result: "success"});
+									return res.send({result: "success"});
 								});
+								//res.send({result: "success"});
 							}
 						} else{
 							return res.send({ error : "one of records makes syntax error"});
 						}
-					});
+					} else {
+						return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+					}
 				});
 			});
 		});
@@ -1431,35 +1400,39 @@ exports.configure = function (app) {
 				return res.send({error: 'you are not authenticated by username: ' + req.params.username});
 			}
 
-			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company){
+			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company, type){
 				if(err) {
 					return res.send({ error : err});
 				}
-				Domain.get(req.params.domainname, function(err, domain){
-					if(err) {
-						return res.send({ error : err});
-					}
-					company.is_owner_of(domain, function(err, response){
+				if(company){
+					Domain.get(req.params.domainname, function(err, domain){
 						if(err) {
 							return res.send({ error : err});
 						}
-
-						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
-						}
-						Company.get(req.body.companyname, function(err, otherCompany){
+						company.is_owner_of(domain, function(err, response){
 							if(err) {
 								return res.send({ error : err});
 							}
-							domain.delegate(otherCompany, req.body.bound, function(err){
+	
+							if(response.result === 'no'){
+								return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+							}
+							Company.get(req.body.companyname, function(err, otherCompany){
 								if(err) {
 									return res.send({ error : err});
 								}
-								res.send({result: "success"});
+								domain.delegate(otherCompany, req.body.bound, function(err){
+									if(err) {
+										return res.send({ error : err});
+									}
+									res.send({result: "success"});
+								});
 							});
 						});
 					});
-				});
+				}  else {
+					return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+				}
 			});
 		});
 	});
@@ -1476,35 +1449,39 @@ exports.configure = function (app) {
 				return res.send({error: 'you are not authenticated by username: ' + req.params.username});
 			}
 
-			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company){
+			User.getCompanyOwnerOfDomain(req.params.username, req.params.domainname, function(err, company, type){
 				if(err) {
 					return res.send({ error : err});
 				}
-				Domain.get(req.params.domainname, function(err, domain){
-					if(err) {
-						return res.send({ error : err});
-					}
-					company.is_owner_of(domain, function(err, response){
+				if(company){
+					Domain.get(req.params.domainname, function(err, domain){
 						if(err) {
 							return res.send({ error : err});
 						}
-
-						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
-						}
-						Company.get(req.body.companyname, function(err, otherCompany){
+						company.is_owner_of(domain, function(err, response){
 							if(err) {
 								return res.send({ error : err});
 							}
-							Domain.removeDelegateAndDelegatorOf(domain.domainname, otherCompany.companyname, req.oauth.bearerToken.accessToken, function(err){
+	
+							if(response.result === 'no'){
+								return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+							}
+							Company.get(req.body.companyname, function(err, otherCompany){
 								if(err) {
 									return res.send({ error : err});
 								}
-								res.send({result: "success"});
+								Domain.removeDelegateAndDelegatorOf(domain.domainname, otherCompany.companyname, req.oauth.bearerToken.accessToken, function(err){
+									if(err) {
+										return res.send({ error : err});
+									}
+									res.send({result: "success"});
+								});
 							});
 						});
 					});
-				});
+				}  else {
+					return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+				}
 			});
 		});
 	});
@@ -1524,48 +1501,52 @@ exports.configure = function (app) {
 			var recordname = req.body.recordname;
 			var recordid = req.body.recordid;
 			
-			User.getCompanyOwnerOfDomain(username, domainname, function(err, company){
+			User.getCompanyOwnerOfDomain(username, domainname, function(err, company, type){
 				if(err) {
 					return res.send({ error : err});
 				}
-				Domain.get(domainname, function(err, domain){
-					if(err) {
-						return res.send({ error : err});
-					}
-					company.is_owner_of(domain, function(err, response){
+				if(company){
+					Domain.get(domainname, function(err, domain){
 						if(err) {
 							return res.send({ error : err});
 						}
-						if(response.result === 'no'){
-							Record.get(recordname+':'+recordid, function(err, record){
-								if(err) {
-									return res.send({ error : err});
-								}
-								company.isDelegatorOf(record, function(err, response){
+						company.is_owner_of(domain, function(err, response){
+							if(err) {
+								return res.send({ error : err});
+							}
+							if(response.result === 'no'){
+								Record.get(recordname+':'+recordid, function(err, record){
 									if(err) {
 										return res.send({ error : err});
 									}
-									if(response.result === 'no'){
-										return res.send({ error : 'You are not authority to access domain:'+req.params.domainname});
-									}
-									Domain.removeRecordAndHave(domainname, recordname, recordid, req.oauth.bearerToken.accessToken, function(err){
+									company.isDelegatorOf(record, function(err, response){
 										if(err) {
 											return res.send({ error : err});
 										}
-										res.send({result: "success"});
+										if(response.result === 'no'){
+											return res.send({ error : 'You do not have authority to access domain:'+req.params.domainname});
+										}
+										Domain.removeRecordAndHave(domainname, recordname, recordid, req.oauth.bearerToken.accessToken, function(err){
+											if(err) {
+												return res.send({ error : err});
+											}
+											res.send({result: "success"});
+										});
 									});
 								});
-							});
-						} else{
-							Domain.removeRecordAndHave(domainname, recordname, recordid, req.oauth.bearerToken.accessToken, function(err){
-								if(err) {
-									return res.send({ error : err});
-								}
-								res.send({result: "success"});
-							});
-						}
+							} else{
+								Domain.removeRecordAndHave(domainname, recordname, recordid, req.oauth.bearerToken.accessToken, function(err){
+									if(err) {
+										return res.send({ error : err});
+									}
+									res.send({result: "success"});
+								});
+							}
+						});
 					});
-				});
+				}  else {
+					return res.send({ error : 'You do not have authority to access domain:'+domainname});
+				}
 			});
 		});
 	});
@@ -1582,29 +1563,33 @@ exports.configure = function (app) {
 			var username = req.params.username;
 			var domainname = req.params.domainname;
 			
-			User.getCompanyOwnerOfDomain(username, domainname, function(err, company){
+			User.getCompanyOwnerOfDomain(username, domainname, function(err, company, type){
 				if(err) {
 					return res.send({ error : err});
 				}
-				Domain.get(domainname, function(err, domain){
-					if(err) {
-						return res.send({ error : err});
-					}
-					company.is_owner_of(domain, function(err, response){
+				if(company){
+					Domain.get(domainname, function(err, domain){
 						if(err) {
 							return res.send({ error : err});
 						}
-						if(response.result === 'no'){
-							return res.send({ error : 'You are not authority to remove all records in domain:'+req.params.domainname});
-						} 
-						Domain.removeAllRecordAndHave(domainname, req.oauth.bearerToken.accessToken, function(err){
+						company.is_owner_of(domain, function(err, response){
 							if(err) {
 								return res.send({ error : err});
 							}
-							res.send({result: "success"});
+							if(response.result === 'no'){
+								return res.send({ error : 'You do not have authority to remove all records in domain:'+req.params.domainname});
+							} 
+							Domain.removeAllRecordAndHave(domainname, req.oauth.bearerToken.accessToken, function(err){
+								if(err) {
+									return res.send({ error : err});
+								}
+								res.send({result: "success"});
+							});
 						});
 					});
-				});
+				}  else {
+					return res.send({ error : 'You do not have authority to access domain:'+domainname});
+				}
 			});
 		});
 	});

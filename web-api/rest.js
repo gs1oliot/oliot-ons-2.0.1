@@ -45,7 +45,7 @@ exports.postOperation = function (uri, operation, username, token, password, arg
 
 	var operationReq = exports.getOperationRequest(uri, operation, username, token, password);
 	operationReq.body = args;
-	console.log(operationReq);
+	//console.log(operationReq);
 	
 	request.post(operationReq, function (error, res, body){
 		if (error) {
@@ -85,6 +85,80 @@ exports.getOperation = function (uri, operation, username, token, password, args
 	console.log(operationReq);
 	
 	request.get(operationReq, function (error, res, body){
+		if (error) {
+			return callback(error);
+		}
+		if (res.statusCode === 200) {
+			try {
+				console.log(body);
+				var operationResponse = JSON.parse(body);
+				if(operationResponse.error) {
+					return callback(operationResponse.error);
+				}
+				return callback(null, operationResponse);
+			} catch (e) {
+				return callback("invalid JSON returned for " + operation);
+			}
+		} else if (res.statusCode >= 401 && res.statusCode <= 403) {
+			return callback(null, null);
+		} else {
+			return callback("authentication failed, status code from rest api was " + res.statusCode);
+		}
+	});
+	
+	
+};
+
+
+exports.delOperation = function (uri, operation, username, token, password, args, callback) {
+	if (operation === null) {
+		return callback("invalid input to executeOperation");
+	}
+
+	var operationReq = exports.getOperationRequest(uri, operation, username, token, password);
+	if(args){
+		operationReq.body = args;
+	}
+	console.log(operationReq);
+	
+	request.del(operationReq, function (error, res, body){
+		if (error) {
+			return callback(error);
+		}
+		if (res.statusCode === 200) {
+			try {
+				console.log(body);
+				var operationResponse = JSON.parse(body);
+				if(operationResponse.error) {
+					return callback(operationResponse.error);
+				}
+				return callback(null, operationResponse);
+			} catch (e) {
+				return callback("invalid JSON returned for " + operation);
+			}
+		} else if (res.statusCode >= 401 && res.statusCode <= 403) {
+			return callback(null, null);
+		} else {
+			return callback("authentication failed, status code from rest api was " + res.statusCode);
+		}
+	});
+	
+	
+};
+
+
+exports.putOperation = function (uri, operation, username, token, password, args, callback) {
+	if (operation === null) {
+		return callback("invalid input to executeOperation");
+	}
+
+	var operationReq = exports.getOperationRequest(uri, operation, username, token, password);
+	if(args){
+		operationReq.body = args;
+	}
+	console.log(operationReq);
+	
+	request.put(operationReq, function (error, res, body){
 		if (error) {
 			return callback(error);
 		}

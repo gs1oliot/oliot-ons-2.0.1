@@ -6,8 +6,7 @@ var errors = require('./errors');
 var config = require('../../config/conf.json');
 var neo4j_url = "http://"+config.NEO_ID+":"+config.NEO_PW+"@"+config.NEO_ADDRESS;
 
-var checkString = require('pdns/lib/util').checkString;
-//var checkDomainName = require('pdns/lib/util').checkDomainName;
+var checkString = require('./util').checkString;
 
 var db = new neo4j.GraphDatabase({
     // Support specifying database info via environment variables,
@@ -46,7 +45,7 @@ Record.VALIDATION_INFO = {
         required: true,
         minLength: 1,
         maxLength: 200,
-        pattern: /^(?=.*[a-zA-Z])(?=.*[!"#$%&'()*+,./:;<=>?@\^_`{|}~-])(?=.*[0-9]).{1,200}$/,
+        pattern: /^[a-zA-Z]|[!"#$%&'()*+,./:;<=>?@\^_`{|}~-]|[0-9]+$/,
         message: '1-200 any characters.'
     },
 };
@@ -217,12 +216,13 @@ Record.refineRecords = function (domainname, records) {
 			recordname += '.'+domainname;
 		}
 
-		var record = { 
-				name: recordname, 
-				type: records[i].type,
-				content: records[i].content,
-				ttl: records[i].ttl,
-			};
+		var record = {
+			id: records[i].id,
+			name: recordname, 
+			type: records[i].type,
+			content: records[i].content,
+			ttl: records[i].ttl,
+		};
 		refinedRecords.push(record);
 	}
 	return refinedRecords;
@@ -238,22 +238,31 @@ Record.checkRecords = function (records) {
 	return wordsOk;
 };
 
-Record.createAndMakeRelationships= function(name, type, content, domain, company, callback){
+Record.createAndMakeRelationships= function(name, type, content, domainname, companyname, callback){
 	Record.create({'recordname':name, 'recordtype':type, 'recordcontent':content}, function(err, record){
 		if(err) {
 			return callback(err);
 		}
-		domain.have(record, function(err){
-			if(err) {
-				return callback(err);
-			}
-			company.delegator_of(record, function(err){
-				if(err) {
-					return callback(err);
-				}
-				callback(null);
-			});
-		});
+		var query = [
+	        'MATCH (record:Record {recordname: {thisRecordname}})',
+	        'MATCH (domain:Domain {domainname: {otherDomainname}})',
+	        'MATCH (company:Company {companyname: {otherCompanyname}})',
+	        'MERGE (domain) -[rel1:have]-> (record)',
+	        'MERGE (company)-[rel2:delegator_of]-> (record)',
+		].join('\n');
+
+	    var params = {
+	        thisRecordname: record.recordname,
+	        otherDomainname: domainname,
+	        otherCompanyname: companyname,
+	    };
+	    
+	    db.cypher({
+	        query: query,
+	        params: params,
+	    }, function (err) {
+	        callback(err);
+	    });
 	});
 };
 
@@ -291,6 +300,31 @@ Record.edit= function(name, editname, edittype, editcontent,  callback){
     });
 };
 
+//this function should be implemented in db api
+/*Record.removeAllRecordsfromServer = function (servername, callback){
+	var Server = require('./server');
+	var backdb_wrapper = require('../backdb/wrapper');
+	Server.get(servername, function(err, server){
+		var servernameArr = server.servername.split(":");
+		var lastDigit = servernameArr[1].substring(3,4);
+		console.log("??:" + lastDigit);
+		var config = {
+				poolname: server.servername,	
+				host: servernameArr[0],
+				database: server.dbName,
+				user: server.dbUsername,
+				password: server.dbPassword,
+				port: "330"+lastDigit,
+		};
+		backdb_wrapper.recordsRemoveAll(config, function(err, result){
+			if (err) {
+				console.log(err);
+				return callback(err);
+			}
+				return callback(null, result);
+		});
+	});
+};*/
 
 Record.get = function (recordname, callback) {
     var query = [

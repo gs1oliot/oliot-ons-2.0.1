@@ -7,6 +7,7 @@ var Company = require('./company');
 var Server = require('./server');
 var Domain = require('./domain');
 var config = require('../../config/conf.json');
+var cachedb = require('../cachedb')
 var neo4j_url = "http://"+config.NEO_ID+":"+config.NEO_PW+"@"+config.NEO_ADDRESS;
 
 
@@ -559,7 +560,7 @@ User.getDelegateManage = function (username, callback) {
     var query = [
         'MATCH (user:User {username: {thisUsername}})-[:ons_administrator_of]->(company:Company)',
         'MATCH (company)<-[:delegate]-(:Domain)<-[:map]-(server:Server)',
-        'RETURN server', // COUNT(rel) is a hack for 1 or 0
+        'RETURN DISTINCT server', // COUNT(rel) is a hack for 1 or 0
     ].join('\n');
 
     var params = {
@@ -635,59 +636,109 @@ User.getCompanyManagingServer = function (username, servername, callback) {
 
 };
 
+User.getCompanyAdministratorOf =  function (username, callback){
+	cachedb.loadCachedData(username+':employeeOf', function(err, results){
+		if(results && JSON.parse(results).company){
+			//console.log("cache hit for :"+username+":employeeOf");
+			cachedb.setExpire(username+':employeeOf', config.REDIS_DEFAULT_EXPIRE);
+	        return callback(null, JSON.parse(results).company);	
+		}
+			
+	    // Query all users and whether we follow each one or not:
+	    var query = [
+	        'MATCH (:User {username: {thisUsername}})-[:ons_administrator_of]->(company:Company)',
+	        'RETURN company.companyname', 
+	    ].join('\n');
+	
+	    var params = {
+	        thisUsername: username,
+	    };
+	
+	    db.cypher({
+	        query: query,
+	        params: params,
+	    }, function (err, results) {
+	        if (err) {
+	        	return callback(err);
+	        }
+	        if(!results[0]){
+	        	return callback('There is no company where you are administor');
+	        }
+	
+	    	cachedb.cacheDataWithExpire(username+':employeeOf', JSON.stringify({company:results[0]['company.companyname']}), config.REDIS_DEFAULT_EXPIRE);
+	        return callback(null, results[0]['company.companyname']);
+	    });
+	});
+};
+
 
 User.getCompanyOwnerOfDomain = function (username, domainname, callback) {
-    // Query all users and whether we follow each one or not:
-    var query = [
-        'MATCH (domain:Domain {domainname: {thisDomainname}})',
-        'MATCH (:User {username: {thisUsername}})-[:ons_administrator_of]->(company:Company)',
-        'OPTIONAL MATCH (company)-[rel1:owner_of]->(domain)',
-        'OPTIONAL MATCH (domain)-[rel2:delegate]->(company)',
-        'RETURN company, COUNT(rel1), COUNT(rel2)', // COUNT(rel) is a hack for 1 or 0
-    ].join('\n');
-
-    var params = {
-        thisUsername: username,
-        thisDomainname: domainname,
-    };
-
-    db.cypher({
-        query: query,
-        params: params,
-    }, function (err, results) {
-        if (err) {
-        	return callback(err);
-        }
-        if(!results[0]){
-        	return callback('There is no company where you are administor');
-        }
-
-        var companiesOwnerOf = [];
-        var companiesDelegated = [];
-
-        for (var i = 0; i < results.length; i++) {
-            //, function(err,thing){
-            //	if(thing)
-        	var company = new Company(results[i]['company']);
-        	var OwnerOf = results[i]['COUNT(rel1)'];
-    		var Delegated = results[i]['COUNT(rel2)'];
-        	if(!company.companyname) {
-        		return callback("Company exists, but its companyname does not exist");
-        	}
-        	if(OwnerOf){
-        		companiesOwnerOf.push(company);
-        	} else if(Delegated){
-        		companiesDelegated.push(company);
-        	}
-        }
-        if(companiesOwnerOf.length){
-            return callback(null, companiesOwnerOf[0]);	
-        } else if(companiesDelegated.length){
-            return callback(null, companiesDelegated[0]);	
-        }
-    	return callback('There is no company owner of or delegated domain: '+domainname);
-    });
-
+	/*cachedb.loadCachedData(username+':'+domainname, function(err, results){
+		if(results && JSON.parse(results).authority){
+			console.log("cache hit for :"+username+":"+domainname);
+			cachedb.setExpire(username+':'+domainname, config.REDIS_DEFAULT_EXPIRE);
+			if(JSON.parse(results).authority === 'owner'){			
+				var company =  new Company(JSON.parse(results).company);
+	            return callback(null, company , "owner");	
+			} else if (JSON.parse(results).authority === 'delegator'){			
+				var company =  new Company(JSON.parse(results).company);
+	            return callback(null, company , "delegator");	
+			} else {
+				return callback(null);
+			}
+		}*/
+			
+	    // Query all users and whether we follow each one or not:
+	    var query = [
+	        'MATCH (domain:Domain {domainname: {thisDomainname}})',
+	        'MATCH (:User {username: {thisUsername}})-[:ons_administrator_of]->(company:Company)',
+	        'OPTIONAL MATCH (company)-[rel1:owner_of]->(domain)',
+	        'OPTIONAL MATCH (domain)-[rel2:delegate]->(company)',
+	        'RETURN company, COUNT(rel1), COUNT(rel2)', // COUNT(rel) is a hack for 1 or 0
+	    ].join('\n');
+	
+	    var params = {
+	        thisUsername: username,
+	        thisDomainname: domainname,
+	    };
+	
+	    db.cypher({
+	        query: query,
+	        params: params,
+	    }, function (err, results) {
+	        if (err) {
+	        	return callback(err);
+	        }
+	        if(!results[0]){
+	        	return callback('There is no company where you are administor');
+	        }
+	
+	        var companiesOwnerOf = [];
+	        var companiesDelegated = [];
+	
+	
+	        for (var i = 0; i < results.length; i++) {
+	        	if(results[i]['COUNT(rel1)']){
+	        		companiesOwnerOf.push(results[i]['company']);
+	        	} else if(results[i]['COUNT(rel2)']){
+	        		companiesDelegated.push(results[i]['company']);
+	        	}
+	        }
+	        var company;
+	        if(companiesOwnerOf.length){
+		    	//cachedb.cacheDataWithExpire(username+':'+domainname, JSON.stringify({authority:"owner", company: companiesOwnerOf[0]}), config.REDIS_DEFAULT_EXPIRE);
+	        	company = new Company(companiesOwnerOf[0]); 
+	            return callback(null, company , "owner");	
+	        } else if(companiesDelegated.length){
+		    	//cachedb.cacheDataWithExpire(username+':'+domainname, JSON.stringify({authority:"delegator", company: companiesDelegated[0]}), config.REDIS_DEFAULT_EXPIRE);
+	        	company = new Company(companiesDelegated[0]); 
+	            return callback(null, company, "delegator");	
+	        } else {
+		    	//cachedb.cacheDataWithExpire(username+':'+domainname, JSON.stringify({authority:"no"}), config.REDIS_DEFAULT_EXPIRE);
+	        	return callback(null);
+	        }
+	    });
+	//});
 };
 
 

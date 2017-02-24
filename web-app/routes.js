@@ -89,9 +89,10 @@ exports.configure = function (app) {
 	app.post('/addServer', auth.ensureAuthenticated, function(req, res){
 		var servername = req.body.servername;
 		var serverport = req.body.serverport;
+		var dbName = req.body.dbName;
 		var dbUsername = req.body.dbUsername;
 		var dbPassword = req.body.dbPassword;
-		var args = "{\"servername\":\""+servername+"\", \"serverport\":\""+serverport+"\", \"dbUsername\":\""+dbUsername+"\", \"dbPassword\":\""+dbPassword+"\"}";
+		var args = "{\"servername\":\""+servername+"\", \"serverport\":\""+serverport+"\", \"dbName\":\""+dbName+"\", \"dbUsername\":\""+dbUsername+"\", \"dbPassword\":\""+dbPassword+"\"}";
 		
 		rest.postOperation(ons_api_address, "company/"+req.user.email+"/manage", null, req.user.token, null, args, function (error, response) {
 			if (error) {

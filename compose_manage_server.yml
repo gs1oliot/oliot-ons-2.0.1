@@ -23,6 +23,13 @@ services:
     volumes:
       - ${PWD}/ons-data/postgre/data:/var/lib/postgresql/data
       - ${PWD}/ons-data/postgre/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+  cache:
+    container_name: cache_redis
+    image: redis:3.2
+    ports:
+      - "6379:6379"
+    volumes:
+      - ${PWD}/ons-data/redis/data:/data
   web_api:
     container_name: web_api
     build:

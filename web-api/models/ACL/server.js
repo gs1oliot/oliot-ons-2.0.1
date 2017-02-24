@@ -49,6 +49,13 @@ Server.VALIDATION_INFO = {
         maxLength: 50,
         pattern: /^[A-Za-z0-9_@.]+$/,
         message: '2-50 characters; letters, numbers, underscores, \'.\', and \'@\' only.'
+    },
+    'dbName': {
+        required: true,
+        minLength: 2,
+        maxLength: 50,
+        pattern: /^[A-Za-z0-9_]+$/,
+        message: '2-50 characters; letters, numbers, and underscores only.'
     }
 };
 
@@ -65,6 +72,10 @@ Object.defineProperty(Server.prototype, 'dbUsername', {
 
 Object.defineProperty(Server.prototype, 'dbPassword', {
     get: function () { return this._node.properties['dbPassword']; }
+});
+
+Object.defineProperty(Server.prototype, 'dbName', {
+    get: function () { return this._node.properties['dbName']; }
 });
 
 // Private helpers:
@@ -402,10 +413,10 @@ Server.mapDomains = function (servername, domainnames, callback) {
 	});
 };
 
-Server.getDomains = function(servername, serverport, token, dbUsername, dbPassword, callback){	
+Server.getDomains = function(servername, serverport, token, dbUsername, dbPassword, dbName, callback){	
 	var domiannames = [];
-	var args="{\"dbUsername\":\""+dbUsername+"\",\"dbPassword\":\""+dbPassword+"\"}";
-	rest.postOperation("http://"+servername+":"+serverport, "domains/list", null, token, null, args, function (error, response) {
+	var args="{\"dbUsername\":\""+dbUsername+"\",\"dbPassword\":\""+dbPassword+"\",\"dbName\":\""+dbName+"\"}";
+	rest.getOperation("http://"+servername+":"+serverport, "domain", null, token, null, args, function (error, response) {
 		if (error) {
 			return callback(error);
 		}
@@ -421,7 +432,6 @@ Server.getDomains = function(servername, serverport, token, dbUsername, dbPasswo
 			return callback(null, domiannames);
 		}
 	});
-	
 };
 
 
@@ -431,7 +441,7 @@ Server.makeDomainAndMap = function (servername, domainname, token, callback) {
 			return callback(err);
 		}
 		var args="{\"domainname\":\""+domainname+"\",\"soa\":"+true+",\"ns\":"+true+",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-		rest.postOperation("http://"+server.servername, "domains/add", null, token, null, args, function (error, response) {
+		rest.postOperation("http://"+server.servername, "domain", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
 			}
@@ -455,7 +465,7 @@ Server.removeDomainAndMap = function (servername, domainname, token, callback) {
 		}
 
 		var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-		rest.postOperation("http://"+server.servername, "domains/remove", null, token, null, args, function (error, response) {
+		rest.delOperation("http://"+server.servername, "domain", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
 			}
@@ -470,6 +480,7 @@ Server.removeDomainAndMap = function (servername, domainname, token, callback) {
 				});
 			});
 		});
+
 	});
 };
 

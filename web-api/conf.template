@@ -6,5 +6,7 @@
     "PG_DB": "${POSTGRES_DATABASE}",
     "NEO_ID": "${NEO4J_USER}",
     "NEO_PW": "${NEO4J_PASSWORD}",
-    "NEO_ADDRESS": "acl_neo4j:7474"
+    "NEO_ADDRESS": "acl_neo4j:7474",
+    "REDIS_HOST" : "cache_redis",
+    "REDIS_DEFAULT_EXPIRE" : ${REDIS_DEFAULT_EXPIRE}
 }

@@ -8,10 +8,12 @@ var config = require('./config/conf.json');
 var pdns_config = {
 		  adapter: "mysql",
 		  host: config.dbHost,
-		  database: "powerdns",
+		  database: config.dbName,
 		  user: config.dbUsername,
 		  password: config.dbPassword,
-		  port: config.dbPort
+		  port: config.dbPort,
+		  /*connectionLimit: config.dbPoolConnLimit,
+		  waitForConnections: false*/
 };
 
 var pdns = require('pdns')(pdns_config);
@@ -35,7 +37,7 @@ exports.configure = function (app) {
 	
 	app.use(app.oauth.errorHandler());
 	
-	app.get('/domains/list', app.oauth.authorise(), function (req, res){
+	app.get('/domain', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
 			pdns.domains.list({}, {}, function(err, domains) {
 				if(err){
@@ -48,20 +50,8 @@ exports.configure = function (app) {
 		}
 	});
 	
-	app.post('/domains/list', app.oauth.authorise(), function (req, res){
-		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
-			pdns.domains.list({}, {}, function(err, domains) {
-				if(err){
-					return res.send({error: err.message});
-				}
-				return res.send({domains: domains});
-			});
-		} else {
-			return res.send({error: "You don't have authority for this server"});
-		}
-	});
 	
-	app.post('/domains/add', app.oauth.authorise(), function (req, res){
+	app.post('/domain', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
 			var domainname = req.body.domainname;
 			if(req.body.soa && req.body.ns){
@@ -84,7 +74,7 @@ exports.configure = function (app) {
 		}
 	});
 	
-	app.post('/domains/remove', app.oauth.authorise(), function (req, res){
+	app.del('/domain', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
 			var domainname = req.body.domainname;
 			pdns.domains.remove({name:domainname},{},function(err, response){
@@ -98,7 +88,7 @@ exports.configure = function (app) {
 		}
 	});
 	
-	app.post('/records/list', app.oauth.authorise(), function (req, res){
+	app.get('/record', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
 			var domainname = req.body.domainname;
 			pdns.records.list(domainname, {}, {}, function(err, records) {
@@ -112,7 +102,7 @@ exports.configure = function (app) {
 		}
 	});
 	
-	app.post('/records/add', app.oauth.authorise(), function (req, res){
+	app.post('/record', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
 			var domainname = req.body.domainname;
 			var record = req.body.record;
@@ -124,7 +114,6 @@ exports.configure = function (app) {
 					if(err) {
 						return res.send({error: err.message});
 			        }
-					console.log(response);
 					return res.send({result: "success", recordId: response.insertId.toString()});
 			});
 		} else {
@@ -132,7 +121,7 @@ exports.configure = function (app) {
 		}
 	});	
 	
-	app.post('/records/edit', app.oauth.authorise(), function (req, res){
+	app.put('/record', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
 			var domainname = req.body.domainname;
 			var record = req.body.record;
@@ -152,7 +141,7 @@ exports.configure = function (app) {
 		}
 	});
 	
-	app.post('/records/remove', app.oauth.authorise(), function (req, res){
+	app.del('/record', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
 			var domainname = req.body.domainname;
 			var record = req.body.record;

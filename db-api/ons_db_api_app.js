@@ -1,4 +1,24 @@
+var cluster = require('cluster');
 
+if(cluster.isMaster) {
+    var numWorkers = require('os').cpus().length;
+	
+	console.log('Master cluster setting up ' + numWorkers + ' workers...');
+	
+	for(var i = 0; i < numWorkers; i++) {
+	    cluster.fork();
+	}
+	
+	cluster.on('online', function(worker) {
+	    console.log('Worker ' + worker.process.pid + ' is online');
+	});
+	
+	cluster.on('exit', function(worker, code, signal) {
+	    console.log('Worker ' + worker.process.pid + ' died with code: ' + code + ', and signal: ' + signal);
+	    console.log('Starting a new worker');
+	    cluster.fork();
+	});
+} else {
 /**
  * Module dependencies.
  */
@@ -33,17 +53,18 @@ routes.configure(app);
 
 
 
-setInterval(function(){
+/*setInterval(function(){
 	backup.backup_records(function(err){
 		if(err){
 			console.log(err);
 		}
 	});
 	
-}, config.BACKUP_EXPIRATION);
+}, config.BACKUP_EXPIRATION);*/
 
 
 
 http.createServer(app).listen(app.get('port'), function(){
   console.log('Express server listening on port ' + app.get('port'));
 });
+}

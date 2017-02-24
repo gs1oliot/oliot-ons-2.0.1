@@ -6,6 +6,7 @@ var errors = require('./errors');
 var Server = require('./server');
 var Domain = require('./domain');
 var config = require('../../config/conf.json');
+var cachedb = require('../cachedb')
 var neo4j_url = "http://"+config.NEO_ID+":"+config.NEO_PW+"@"+config.NEO_ADDRESS;
 
 
@@ -472,7 +473,6 @@ Company.prototype.isDelegatedByDomain = function (other, callback) {
     	if(err){
     		return callback(err);
         }
-    	console.log(res[0].rel.properties.bound);
     	if(res[0]){
     		callback(null,{result: 'yes', bound: res[0].rel.properties.bound});
     	} else{
@@ -669,6 +669,75 @@ Company.getManage = function (companyname, callback) {
     });
 };
 
+
+Company.getCompanyOwnerOfDomain = function (companyname, domainname, callback) {
+	cachedb.loadCachedData(companyname+':'+domainname, function(err, results){
+		if(results && JSON.parse(results).authority){
+			//console.log("cache hit for :"+companyname+":"+domainname);
+			cachedb.setExpire(companyname+':'+domainname, config.REDIS_DEFAULT_EXPIRE);
+			/*var company;
+			if(JSON.parse(results).authority === 'owner'){			
+				company =  new Company(JSON.parse(results).company);
+	            return callback(null, company , "owner");	
+			} else if (JSON.parse(results).authority === 'delegator'){			
+				company =  new Company(JSON.parse(results).company);
+	            return callback(null, company , "delegator");	
+			} else {
+				return callback(null);
+			}*/
+			return callback(null, JSON.parse(results).authority);
+		}
+	    // Query all users and whether we follow each one or not:
+	    var query = [
+	        'MATCH (domain:Domain {domainname: {thisDomainname}})',
+	        'MATCH (company:Company {companyname: {thisCompanyname}})',
+	        'OPTIONAL MATCH (company)-[rel1:owner_of]->(domain)',
+	        'OPTIONAL MATCH (domain)-[rel2:delegate]->(company)',
+	        'RETURN company, COUNT(rel1), COUNT(rel2)', // COUNT(rel) is a hack for 1 or 0
+	    ].join('\n');
+	
+	    var params = {
+	    	thisCompanyname: companyname,
+	        thisDomainname: domainname,
+	    };
+	
+	    db.cypher({
+	        query: query,
+	        params: params,
+	    }, function (err, results) {
+	        if (err) {
+	        	return callback(err);
+	        }
+	        if(!results[0]){
+	        	return callback('There is no company where you are administor');
+	        }
+	
+	        var companiesOwnerOf = [];
+	        var companiesDelegated = [];
+	
+	        for (var i = 0; i < results.length; i++) {
+	        	if(results[i]['COUNT(rel1)']){
+	        		companiesOwnerOf.push(results[i]['company']);
+	        	} else if(results[i]['COUNT(rel2)']){
+	        		companiesDelegated.push(results[i]['company']);
+	        	}
+	        }
+	        var company;
+	        if(companiesOwnerOf.length){
+		    	cachedb.cacheDataWithExpire(companyname+':'+domainname, JSON.stringify({authority:"owner"}), config.REDIS_DEFAULT_EXPIRE);
+	        	//company = new Company(companiesOwnerOf[0]); 
+	            return callback(null, "owner");	
+	        } else if(companiesDelegated.length){
+		    	cachedb.cacheDataWithExpire(companyname+':'+domainname, JSON.stringify({authority:"delegator"}), config.REDIS_DEFAULT_EXPIRE);
+	        	//company = new Company(companiesDelegated[0]); 
+	            return callback(null, "delegator");	
+	        } else {
+		    	cachedb.cacheDataWithExpire(companyname+':'+domainname, JSON.stringify({authority:"no"}), config.REDIS_DEFAULT_EXPIRE);
+	        	return callback(null, "no");
+	        }
+	    });
+	});
+};
 
 Company.getDelegateManage = function (companyname, callback) {
 
