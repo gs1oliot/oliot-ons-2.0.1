@@ -8,4 +8,4 @@ source .env
 envsubst < ./db-api/conf.template > ./db-api/conf.json
 
 # run
-docker-compose -f compose_ons_server.yml up
+docker-compose -f compose_ons_server.yml up -d

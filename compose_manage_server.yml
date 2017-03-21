@@ -12,6 +12,7 @@ services:
     volumes:
       - ${PWD}/ons-data/neo4j/data:/data
       - ${PWD}/ons-data/neo4j/logs:/logs
+      - ${PWD}/ons-data/neo4j/constraints.cql:/var/lib/neo4j/import/constraints.cql
   auth_ons:
     container_name: auth_postgre
     image: postgres:9.4
