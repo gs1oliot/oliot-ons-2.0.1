@@ -23,4 +23,4 @@ $ bash deploy_ons_server.sh
 Note: You can install both servers in one machine.
 
 ## License
-See [LICENSE] (LICENSE).
+See [LICENSE](LICENSE).
