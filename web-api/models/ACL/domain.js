@@ -14,8 +14,6 @@ var cachedb = require('../cachedb');
 
 
 var db = new neo4j.GraphDatabase({
-    // Support specifying database info via environment variables,
-    // but assume Neo4j installation defaults.
     url: process.env['NEO4J_URL'] || process.env['GRAPHENEDB_URL'] ||
     	neo4j_url,
     auth: process.env['NEO4J_AUTH'],
@@ -24,8 +22,6 @@ var db = new neo4j.GraphDatabase({
 // Private constructor:
 
 var Domain = module.exports = function Domain(_node) {
-    // All we'll really store is the node; the rest of our properties will be
-    // derivable or just pass-through properties (see below).
     this._node = _node;
 };
 
@@ -43,16 +39,12 @@ Domain.VALIDATION_INFO = {
 
 // Public instance properties:
 
-// The domain's domainname, e.g. 'aseemk'.
 Object.defineProperty(Domain.prototype, 'domainname', {
     get: function () { return this._node.properties['domainname']; }
 });
 
 // Private helpers:
 
-//Validates the given property based on the validation info above.
-//By default, ignores null/undefined/empty values, but you can pass `true` for
-//the `required` param to enforce that any required properties are present.
 function validateProp(prop, val, required) {
  var info = Domain.VALIDATION_INFO[prop];
  var message = info.message;
@@ -82,12 +74,6 @@ function validateProp(prop, val, required) {
  }
 }
 
-// Takes the given caller-provided properties, selects only known ones,
-// validates them, and returns the known subset.
-// By default, only validates properties that are present.
-// (This allows `Domain.prototype.patch` to not require any.)
-// You can pass `true` for `required` to validate that all required properties
-// are present too. (Useful for `Domain.create`.)
 function validate(props, required) {
     var safeProps = {};
 
@@ -110,8 +96,6 @@ function isConstraintViolation(err) {
 
 // Public instance methods:
 
-// Atomically updates this domain, both locally and remotely in the db, with the
-// given property updates.
 Domain.prototype.patch = function (props, callback) {
     var safeProps = validate(props);
 
@@ -133,11 +117,6 @@ Domain.prototype.patch = function (props, callback) {
         params: params,
     }, function (err, results) {
         if (isConstraintViolation(err)) {
-            // TODO: This assumes domainname is the only relevant constraint.
-            // We could parse the constraint property out of the error message,
-            // but it'd be nicer if Neo4j returned this data semantically.
-            // Alternately, we could tweak our query to explicitly check first
-            // whether the domainname is taken or not.
             err = new errors.ValidationError(
                 'The domainname ‘' + props.domainname + '’ is taken.');
         }
@@ -150,7 +129,6 @@ Domain.prototype.patch = function (props, callback) {
             return callback(err);
         }
 
-        // Update our node with this updated+latest data from the server:
         self._node = results[0]['domain'];
 
         callback(null);
@@ -158,10 +136,6 @@ Domain.prototype.patch = function (props, callback) {
 };
 
 Domain.prototype.del = function (callback) {
-    // Use a Cypher query to delete both this domain and his/her following
-    // relationships in one query and one network request:
-    // (Note that this'll still fail if there are any relationships attached
-    // of any other types, which is good because we don't expect any.)
     
 	var query = [
 	   'MATCH (domain:Domain {domainname: {thisDomainname}})',
@@ -222,6 +196,7 @@ Domain.prototype.un_have = function (other, callback) {
 };
 
 Domain.prototype.un_have_all = function (callback) {
+	//Delete all records related to domain at once
     var query = [
         'MATCH (:Domain {domainname: {thisDomainname}})-[:have]->(record:Record)',
         'DETACH DELETE record',
@@ -287,7 +262,6 @@ Domain.prototype.un_delegate = function (other, callback) {
 Domain.isExceededBound = function (companyname, domainname, callback) {
 	cachedb.loadCachedData(companyname+':'+domainname+':isBounded', function(err, results){
 		if(results && JSON.parse(results).result){
-			//console.log("cache hit for :"+companyname+':'+domainname+':isBounded');
 			cachedb.setExpire(companyname+':'+domainname+':isBounded', config.REDIS_DEFAULT_EXPIRE);
 			if(JSON.parse(results).result === 'no'){
 	    		return callback(null, {result: 'no'});
@@ -313,15 +287,15 @@ Domain.isExceededBound = function (companyname, domainname, callback) {
 	    		return callback(err);
 	    	}
 		    if(results.length){
-		    	if(results[0]['rel.bound']===0 ){
+		    	if(results[0]['rel.bound']===0 ){ //Bound of 0 means there is no number limitation for company
 			    	cachedb.cacheDataWithExpire(companyname+':'+domainname+':isBounded', JSON.stringify({result: 'no'}), config.REDIS_DEFAULT_EXPIRE);
 		    		return callback(null, {result: 'no'});
-		    	} else if(results[0]['count(DISTINCT record)'] < results[0]['rel.bound']){
+		    	} else if(results[0]['count(DISTINCT record)'] < results[0]['rel.bound']){ //Num of records does not exceed bound
 		    		return callback(null, {result: 'no'});
-		    	} else{
+		    	} else{ //Num of records exceeds bound
 		    		return callback(null, {result: 'yes'});
 		    	}
-	    	} else{
+	    	} else{ //There are no records yet
 	    		return callback(null, {result: 'no'});
 	    	}
 	    });
@@ -361,11 +335,9 @@ Domain.get = function (domainname, callback) {
 
 
 Domain.getDelegate = function (domainname, callback) {
-
-    // Query all domains and whether we follow each one or not:
     var query = [
         'MATCH (domain:Domain {domainname: {thisDomainname}})-[:delegate]->(company:Company)',
-        'RETURN company', // COUNT(rel) is a hack for 1 or 0
+        'RETURN company',
     ].join('\n');
 
     var params = {
@@ -383,27 +355,19 @@ Domain.getDelegate = function (domainname, callback) {
         var companies = [];
 
         for (var i = 0; i < results.length; i++) {
-            //, function(err,company){
-            //	if(company)
         	var company = new Company(results[i]['company']);
         	if(!company.companyname) {
-        		return callback("Company exists, but its companyname does not exist");
+        		return callback("Company exists, but its companyname does not exist");//this should not occur
         	}
         	companies.push(company.companyname);
-        	//var companies = new company.Company(results[i]['company']);
-            //ownerships.push(companies.gs1code);
-        	//var domains = new Domain(results[i]['company']);
-        	//ownerships.push(domains.domainname);
         }
-        //if (owns.length == 0)
-        //	callback(null,null);
         callback(null, companies);
     });
 };
 
 
 Domain.prototype.getDelegatorAndOthers = function (company, callback) {
-
+	//TODO: Change function name to 'getDelegateeAndOthers'
     var query = [
         'MATCH (domain:Domain {domainname: {thisDomainname}})',
         'MATCH (others:Company)',
@@ -435,9 +399,9 @@ Domain.prototype.getDelegatorAndOthers = function (company, callback) {
             var delegator = results[i]['COUNT(rel)'];
             
             if (delegator) {
-            	delegators.push(other);
+            	delegators.push(other); //Delegatees of domain
             } else {
-            	others.push(other);
+            	others.push(other); //all companies excluding delegatees of domain
             }
         }
         callback(null, delegators, others);
@@ -447,11 +411,9 @@ Domain.prototype.getDelegatorAndOthers = function (company, callback) {
 
 
 Domain.getHave = function (domainname, callback) {
-
-    // Query all domains and whether we follow each one or not:
     var query = [
         'MATCH (domain:Domain {domainname: {thisDomainname}})-[:have]->(record:Record)',
-        'RETURN record', // COUNT(rel) is a hack for 1 or 0
+        'RETURN record', 
     ].join('\n');
 
     var params = {
@@ -472,9 +434,9 @@ Domain.getHave = function (domainname, callback) {
         for (var i = 0; i < results.length; i++) {
         	var record = new Record(results[i]['record']);
         	if(!record.recordname){
-        		return callback("Record exists, but its recordname does not exist");
+        		return callback("Record exists, but its recordname does not exist"); //This should not occur
         	}
-        	records.push(record.recordname);
+        	records.push(record.recordname); //records that domain has
         }
         callback(null, records);
     });
@@ -485,14 +447,12 @@ Domain.getMapped = function (domainname, callback) {
 
 	cachedb.loadCachedData(domainname+':mappedServer', function(err, results){
 		if(results){
-			//console.log("cache hit for :"+companyname+':'+domainname+':isBounded');
 			cachedb.setExpire(domainname+':mappedServer', config.REDIS_DEFAULT_EXPIRE);
 	    	return callback(null, JSON.parse(results));
 		}
-	    // Query all domains and whether we follow each one or not:
 	    var query = [
 	        'MATCH (domain:Domain {domainname: {thisDomainname}})<-[:map]-(server:Server)',
-	        'RETURN server', // COUNT(rel) is a hack for 1 or 0
+	        'RETURN server', 
 	    ].join('\n');
 	
 	    var params = {
@@ -513,7 +473,7 @@ Domain.getMapped = function (domainname, callback) {
 	            return callback(err);
 	        }
 	    	cachedb.cacheDataWithExpire(domainname+':mappedServer', JSON.stringify(results[0].server.properties), config.REDIS_DEFAULT_EXPIRE);
-	        callback(null, results[0].server.properties);
+	        callback(null, results[0].server.properties); //Server that domain is mapped to
 	    });
 	});
 };
@@ -521,13 +481,14 @@ Domain.getMapped = function (domainname, callback) {
 
 
 Domain.getRecords = function (domainname, token, callback) {
-
+	//Get records from back-end
 	Domain.getMapped(domainname, function(err, server){
 		if(err) {
         	return callback(err);
         }
-		var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-		rest.getOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+		//TODO: Do not expose the password of DB
+		var args="{\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}"; 
+		rest.getOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 			if (error) {
 	        	return callback(error);
 			} 
@@ -540,8 +501,7 @@ Domain.getRecords = function (domainname, token, callback) {
 
 
 Domain.getDelegatedRecordByCompany = function (companyname, domainname, callback) {
-	
-    // Query all companys and whether we follow each one or not:
+
     var query = [
         'MATCH (domain:Domain {domainname: {thisDomainname}})',
         'MATCH (other:Company {companyname: {otherCompanyname}})',
@@ -567,7 +527,7 @@ Domain.getDelegatedRecordByCompany = function (companyname, domainname, callback
         for (var i = 0; i < results.length; i++) {
         	var record = new Record(results[i]['record']);
         	if(!record.recordname){
-        		return callback("Record exists, but its recordname does not exist");
+        		return callback("Record exists, but its recordname does not exist"); //This should not occur
         	}
         	records.push(record);
         }
@@ -585,8 +545,9 @@ Domain.editRecords = function (domainname, editRecords, token, callback) {
         	return callback(err);
         }
 			
-		var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-		rest.getOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+		var args="{\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
+		//get all records from backend
+		rest.getOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
 			} 
@@ -603,10 +564,10 @@ Domain.editRecords = function (domainname, editRecords, token, callback) {
 							records[i].type !== editRecords[j].type ||
 							records[i].ttl !== Number(editRecords[j].ttl) ||
 							records[i].content !== editRecords[j].content)){
-							changed= true;
+							changed= true; //Record is changed
 						}
 						found++;
-						j=editRecords.length;
+						j=editRecords.length; //Escape for loop if matched record is found
 					}
 					
 				}
@@ -623,9 +584,10 @@ Domain.editRecords = function (domainname, editRecords, token, callback) {
 						content: editRecords[i].content,
 						ttl: editRecords[i].ttl
 					};
-					var argsJson = {domainname:domainname, record:recordJson, id:editRecords[i].id, dbUsername:server.dbUsername, dbPassword: server.dbPassword};
+					var argsJson = {record:recordJson, id:editRecords[i].id, dbUsername:server.dbUsername, dbPassword: server.dbPassword};
 					var args=JSON.stringify(argsJson);
-					rest.putOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+					//Put changed record in back-end 
+					rest.putOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 						if (error) {
 							var arrMsg = error.split(' ');
 							if(arrMsg[0] !== 'Duplicate' || arrMsg[1] !== 'entry'){
@@ -652,8 +614,9 @@ Domain.editDelegatedRecords = function (domainname, editRecords, token, callback
 		if(err) {
         	return callback(err);
         }
-		var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-		rest.getOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+		var args="{\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
+		//get all records from back-end
+		rest.getOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
 			}
@@ -669,10 +632,10 @@ Domain.editDelegatedRecords = function (domainname, editRecords, token, callback
 							records[i].ttl !== Number(editRecords[j].ttl) ||
 							records[i].content !== editRecords[j].content)){
 							changed= true;
-							changedRecords.push(records[i]);
+							changedRecords.push(records[i]); //Record is changed
 						}
 						found++;
-						j=editRecords.length;
+						j=editRecords.length; //Escape for loop if matched record is found
 					}
 					
 				}
@@ -690,9 +653,10 @@ Domain.editDelegatedRecords = function (domainname, editRecords, token, callback
 						content: editRecords[i].content,
 						ttl: editRecords[i].ttl,
 					};
-					var argsJson = {domainname:domainname, id:editRecords[i].id, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
+					var argsJson = {id:editRecords[i].id, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 					var args=JSON.stringify(argsJson);
-					rest.putOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+					//Put changed record in back-end 
+					rest.putOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 						if (error) {
 							var arrMsg = error.split(' ');
 							if(arrMsg[0] !== 'Duplicate' || arrMsg[1] !== 'entry'){
@@ -748,9 +712,10 @@ Domain.newRecords = function (domainname, newRecords, token, callback) {
 				content: newRecords.content,
 				ttl: newRecords.ttl,
 			};
-		var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
+		var argsJson = {record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 		var args = JSON.stringify(argsJson);
-		rest.postOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+		//Add new record to back-end
+		rest.postOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 			if (error) {
 				return callback(err);
 			}
@@ -777,9 +742,10 @@ Domain.removeRecordAndHave = function (domainname, recordname, recordid, token, 
 				recordJson = {name:recordname, id:recordid};
 			}
 			
-			var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
+			var argsJson = {record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 			var args=JSON.stringify(argsJson);
-			rest.delOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+			//Delete record from back-end
+			rest.delOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 				if (error) {
 			       	return callback(error);
 				}
@@ -788,6 +754,7 @@ Domain.removeRecordAndHave = function (domainname, recordname, recordid, token, 
 						if(err){
 							return callback(err);
 						}
+						//Delete record from access control
 						domain.un_have(record, function(err){
 							return callback(err);
 						});
@@ -810,8 +777,8 @@ Domain.removeAllRecordAndHave = function (domainname, token, callback) {
 			if(err){
 				return callback(err);
 			}	
-			var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
-			rest.getOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+			var args="{\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
+			rest.getOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 				if (error) {
 			       	return callback(error);
 				}
@@ -821,14 +788,16 @@ Domain.removeAllRecordAndHave = function (domainname, token, callback) {
 					for(var i = 0; i< records.length; ++i){
 
 						var recordJson = {name:records[i].name, type:records[i].type, content: records[i].content};
-						var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
+						var argsJson = {record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 						var args=JSON.stringify(argsJson);
-						rest.delOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+						//Delete all records from back-end
+						rest.delOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 							if (error) {
 						       	return callback(error);
 							}
 							++found;
 							if(found === records.length){
+								//Delete all records from access control 
 								domain.un_have_all(function(err){
 									
 									return callback(err);
@@ -869,7 +838,7 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 			        		return callback(err);
 			        	}
 			        	
-						if(delegatedRecords.length){
+						if(delegatedRecords.length){ //Records by delegatee exist
 
 							var delegatedRecordParams=[];
 							var delegatedId = [];
@@ -894,15 +863,17 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 							for (var i =0; i < delegatedRecords.length; ++i){
 	
 								var recordJson = {name:delegatedRecords[i].recordname, type:delegatedRecords[i].recordtype, content: delegatedRecords[i].content};
-								var argsJson = {domainname:domainname, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
+								var argsJson = {record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 								var args=JSON.stringify(argsJson);
-								rest.delOperation("http://"+server.servername, "record", null, token, null, args, function (error, response) {
+								//Delete delegated record from back-end
+								rest.delOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 									if (error) {
 								       	return callback(error);
 									}
 									++count;
 									
 									if(count === records.length){
+										//Delete delegated record from access control
 										domain.un_delegate(company, function(err){
 											return callback(err);
 										});
@@ -923,7 +894,6 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 };
 
 
-// Creates the domain and persists (saves) it to the db, incl. indexing it:
 Domain.create = function (props, callback) {
     var query = [
         'CREATE (domain:Domain {props})',
@@ -939,11 +909,6 @@ Domain.create = function (props, callback) {
         params: params,
     }, function (err, results) {
         if (isConstraintViolation(err)) {
-            // TODO: This assumes domainname is the only relevant constraint.
-            // We could parse the constraint property out of the error message,
-            // but it'd be nicer if Neo4j returned this data semantically.
-            // Alternately, we could tweak our query to explicitly check first
-            // whether the domainname is taken or not.
             err = new errors.ValidationError(
                 'The domainname ‘' + props.domainname + '’ is taken.');
         }
@@ -954,24 +919,3 @@ Domain.create = function (props, callback) {
         callback(null, domain);
     });
 };
-
-/*
-// Static initialization:
-
-// Register our unique domainname constraint.
-// TODO: This is done async'ly (fire and forget) here for simplicity,
-// but this would be better as a formal schema migration script or similar.
-db.createConstraint({
-    label: 'Domain',
-    property: 'domainname',
-}, function (err, constraint) {
-    if (err) {
-    	throw err;     // Failing fast for now, by crash the application.
-    }
-    if (constraint) {
-        console.log('(Registered unique domainnames constraint.)');
-    } else {
-        // Constraint already present; no need to log anything.
-    }
-});
-*/

@@ -11,8 +11,6 @@ var rest = require('../../rest');
 
 
 var db = new neo4j.GraphDatabase({
-    // Support specifying database info via environment variables,
-    // but assume Neo4j installation defaults.
     url: process.env['NEO4J_URL'] || process.env['GRAPHENEDB_URL'] ||
     	neo4j_url,
     auth: process.env['NEO4J_AUTH'],
@@ -21,8 +19,6 @@ var db = new neo4j.GraphDatabase({
 // Private constructor:
 
 var Server = module.exports = function Server(_node) {
-    // All we'll really store is the node; the rest of our properties will be
-    // derivable or just pass-through properties (see below).
     this._node = _node;
 };
 
@@ -60,8 +56,6 @@ Server.VALIDATION_INFO = {
 };
 
 // Public instance properties:
-
-// The server's servername, e.g. 'aseemk'.
 Object.defineProperty(Server.prototype, 'servername', {
     get: function () { return this._node.properties['servername']; }
 });
@@ -79,10 +73,6 @@ Object.defineProperty(Server.prototype, 'dbName', {
 });
 
 // Private helpers:
-
-//Validates the given property based on the validation info above.
-//By default, ignores null/undefined/empty values, but you can pass `true` for
-//the `required` param to enforce that any required properties are present.
 function validateProp(prop, val, required) {
  var info = Server.VALIDATION_INFO[prop];
  var message = info.message;
@@ -112,12 +102,6 @@ function validateProp(prop, val, required) {
  }
 }
 
-// Takes the given caller-provided properties, selects only known ones,
-// validates them, and returns the known subset.
-// By default, only validates properties that are present.
-// (This allows `Server.prototype.patch` to not require any.)
-// You can pass `true` for `required` to validate that all required properties
-// are present too. (Useful for `Server.create`.)
 function validate(props, required) {
     var safeProps = {};
 
@@ -139,9 +123,6 @@ function isConstraintViolation(err) {
 }
 
 // Public instance methods:
-
-// Atomically updates this server, both locally and remotely in the db, with the
-// given property updates.
 Server.prototype.patch = function (props, callback) {
     var safeProps = validate(props);
 
@@ -163,11 +144,6 @@ Server.prototype.patch = function (props, callback) {
         params: params,
     }, function (err, results) {
         if (isConstraintViolation(err)) {
-            // TODO: This assumes servername is the only relevant constraint.
-            // We could parse the constraint property out of the error message,
-            // but it'd be nicer if Neo4j returned this data semantically.
-            // Alternately, we could tweak our query to explicitly check first
-            // whether the servername is taken or not.
             err = new errors.ValidationError(
                 'The servername ‘' + props.servername + '’ is taken.');
         }
@@ -180,7 +156,6 @@ Server.prototype.patch = function (props, callback) {
             return callback(err);
         }
 
-        // Update our node with this updated+latest data from the server:
         self._node = results[0]['server'];
 
         callback(null);
@@ -188,10 +163,6 @@ Server.prototype.patch = function (props, callback) {
 };
 
 Server.prototype.del = function (callback) {
-    // Use a Cypher query to delete both this server and his/her following
-    // relationships in one query and one network request:
-    // (Note that this'll still fail if there are any relationships attached
-    // of any other types, which is good because we don't expect any.)
     
 	var query = [
 	   'MATCH (server:Server {servername: {thisServername}})',
@@ -253,29 +224,7 @@ Server.prototype.un_map = function (other, callback) {
         query: query,
         params: params,
     }, function (err) {
-    	//if(err){
-    		callback(err);
-    	//}
-
-        /*var query2 = [
-            'MATCH (server:Server {servername: {thisServername}})',
-            'MATCH (domain:Domain {domainname: {otherDomainname}})',
-            'MATCH (server)-[:map]->(domain)',
-            'OTIONAL MATCH (domain)-[:have]->(record:Record)',
-            'DETACH DELETE domain, record',
-        ].join('\n');
-
-        var params2 = {
-        	thisServername: servername,
-            otherDomainname: other.domainname,
-        };
-
-        db.cypher({
-            query: query2,
-            params: params2,
-        }, function (err) {
-        	callback(err);
-        });*/
+    	callback(err);
     });
 };
 
@@ -308,11 +257,9 @@ Server.get = function (servername, callback) {
 
 
 Server.getMap = function (servername, callback) {
-
-    // Query all servers and whether we follow each one or not:
     var query = [
         'MATCH (server:Server {servername: {thisServername}})-[:map]->(domain:Domain)',
-        'RETURN domain', // COUNT(rel) is a hack for 1 or 0
+        'RETURN domain', 
     ].join('\n');
 
     var params = {
@@ -330,20 +277,12 @@ Server.getMap = function (servername, callback) {
         var domains = [];
 
         for (var i = 0; i < results.length; i++) {
-            //, function(err,thing){
-            //	if(thing)
         	var domain = new Domain(results[i]['domain']);
         	if(!domain.domainname) {
-        		return callback("Domain exists, but its domainname does not exist");
+        		return callback("Domain exists, but its domainname does not exist"); //This should not occur
         	}
         	domains.push(domain.domainname);
-        	//var things = new thing.Thing(results[i]['thing']);
-            //ownerships.push(things.gs1code);
-        	//var servers = new Server(results[i]['thing']);
-        	//ownerships.push(servers.servername);
         }
-        //if (owns.length == 0)
-        //	callback(null,null);
         callback(null, domains);
     });
 };
@@ -351,11 +290,9 @@ Server.getMap = function (servername, callback) {
 
 
 Server.getDelegatedDomainByCompany= function (companyname, servername, callback) {
-
-    // Query all companys and whether we follow each one or not:
     var query = [
         'MATCH (:Company {companyname: {thisCompanyname}})<-[:delegate]-(domain:Domain)<-[:map]-(:Server{servername: {thisServername}})',
-        'RETURN domain', // COUNT(rel) is a hack for 1 or 0
+        'RETURN domain',
     ].join('\n');
 
     var params = {
@@ -376,7 +313,7 @@ Server.getDelegatedDomainByCompany= function (companyname, servername, callback)
         for (var i = 0; i < results.length; i++) {
         	var domain = new Domain(results[i]['domain']);
         	if(!domain.domainname){
-        		return callback("Domain exists, but its domainname does not exist");
+        		return callback("Domain exists, but its domainname does not exist"); //This should not occur
         	}
         	domains.push(domain.domainname);
         }
@@ -387,6 +324,7 @@ Server.getDelegatedDomainByCompany= function (companyname, servername, callback)
 
 
 Server.mapDomains = function (servername, domainnames, callback) {
+	//Map multiple domains at once
 	Server.get(servername, function(err, server){
 		if(err){
 			return callback(err);
@@ -416,6 +354,7 @@ Server.mapDomains = function (servername, domainnames, callback) {
 Server.getDomains = function(servername, serverport, token, dbUsername, dbPassword, dbName, callback){	
 	var domiannames = [];
 	var args="{\"dbUsername\":\""+dbUsername+"\",\"dbPassword\":\""+dbPassword+"\",\"dbName\":\""+dbName+"\"}";
+	//Get domains from back-end. Here, server port is required.
 	rest.getOperation("http://"+servername+":"+serverport, "domain", null, token, null, args, function (error, response) {
 		if (error) {
 			return callback(error);
@@ -441,6 +380,7 @@ Server.makeDomainAndMap = function (servername, domainname, token, callback) {
 			return callback(err);
 		}
 		var args="{\"domainname\":\""+domainname+"\",\"soa\":"+true+",\"ns\":"+true+",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
+		//Add new domain to back-end
 		rest.postOperation("http://"+server.servername, "domain", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
@@ -449,6 +389,7 @@ Server.makeDomainAndMap = function (servername, domainname, token, callback) {
 				if(err) {
 					return callback(err);
 				}
+				//Add new domain and relationship to access control
 				server.map(domain, function (err){
 					
 					return callback(err);
@@ -465,6 +406,7 @@ Server.removeDomainAndMap = function (servername, domainname, token, callback) {
 		}
 
 		var args="{\"domainname\":\""+domainname+"\",\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
+		//Delete domain from back-end
 		rest.delOperation("http://"+server.servername, "domain", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
@@ -474,6 +416,7 @@ Server.removeDomainAndMap = function (servername, domainname, token, callback) {
 					
 					return callback(err);
 				}
+				//Delete domain and relationship from access control
 				server.un_map(domain, function(err){
 					
 					return callback(err);
@@ -485,7 +428,6 @@ Server.removeDomainAndMap = function (servername, domainname, token, callback) {
 };
 
 
-// Creates the server and persists (saves) it to the db, incl. indexing it:
 Server.create = function (props, callback) {
     var query = [
         'CREATE (server:Server {props})',
@@ -501,11 +443,6 @@ Server.create = function (props, callback) {
         params: params,
     }, function (err, results) {
         if (isConstraintViolation(err)) {
-            // TODO: This assumes servername is the only relevant constraint.
-            // We could parse the constraint property out of the error message,
-            // but it'd be nicer if Neo4j returned this data semantically.
-            // Alternately, we could tweak our query to explicitly check first
-            // whether the servername is taken or not.
             err = new errors.ValidationError(
                 'The servername ‘' + props.servername + '’ is taken.');
         }
@@ -516,24 +453,3 @@ Server.create = function (props, callback) {
         callback(null, server);
     });
 };
-
-/*
-// Static initialization:
-
-// Register our unique servername constraint.
-// TODO: This is done async'ly (fire and forget) here for simplicity,
-// but this would be better as a formal schema migration script or similar.
-db.createConstraint({
-    label: 'Server',
-    property: 'servername',
-}, function (err, constraint) {
-    if (err) {
-    	throw err;     // Failing fast for now, by crash the application.
-    }
-    if (constraint) {
-        console.log('(Registered unique servernames constraint.)');
-    } else {
-        // Constraint already present; no need to log anything.
-    }
-});
-*/

@@ -11,8 +11,6 @@ var neo4j_url = "http://"+config.NEO_ID+":"+config.NEO_PW+"@"+config.NEO_ADDRESS
 
 
 var db = new neo4j.GraphDatabase({
-    // Support specifying database info via environment variables,
-    // but assume Neo4j installation defaults.
     url: process.env['NEO4J_URL'] || process.env['GRAPHENEDB_URL'] ||
     	neo4j_url,
     auth: process.env['NEO4J_AUTH'],
@@ -21,8 +19,6 @@ var db = new neo4j.GraphDatabase({
 // Private constructor:
 
 var Company = module.exports = function Company(_node) {
-    // All we'll really store is the node; the rest of our properties will be
-    // derivable or just pass-through properties (see below).
     this._node = _node;
 };
 
@@ -40,16 +36,11 @@ Company.VALIDATION_INFO = {
 
 // Public instance properties:
 
-// The company's companyname, e.g. 'aseemk'.
 Object.defineProperty(Company.prototype, 'companyname', {
     get: function () { return this._node.properties['companyname']; }
 });
 
 // Private helpers:
-
-//Validates the given property based on the validation info above.
-//By default, ignores null/undefined/empty values, but you can pass `true` for
-//the `required` param to enforce that any required properties are present.
 function validateProp(prop, val, required) {
  var info = Company.VALIDATION_INFO[prop];
  var message = info.message;
@@ -79,12 +70,6 @@ function validateProp(prop, val, required) {
  }
 }
 
-// Takes the given caller-provided properties, selects only known ones,
-// validates them, and returns the known subset.
-// By default, only validates properties that are present.
-// (This allows `Company.prototype.patch` to not require any.)
-// You can pass `true` for `required` to validate that all required properties
-// are present too. (Useful for `Company.create`.)
 function validate(props, required) {
     var safeProps = {};
 
@@ -107,8 +92,6 @@ function isConstraintViolation(err) {
 
 // Public instance methods:
 
-// Atomically updates this company, both locally and remotely in the db, with the
-// given property updates.
 Company.prototype.patch = function (props, callback) {
     var safeProps = validate(props);
 
@@ -130,11 +113,6 @@ Company.prototype.patch = function (props, callback) {
         params: params,
     }, function (err, results) {
         if (isConstraintViolation(err)) {
-            // TODO: This assumes companyname is the only relevant constraint.
-            // We could parse the constraint property out of the error message,
-            // but it'd be nicer if Neo4j returned this data semantically.
-            // Alternately, we could tweak our query to explicitly check first
-            // whether the companyname is taken or not.
             err = new errors.ValidationError(
                 'The companyname ‘' + props.companyname + '’ is taken.');
         }
@@ -147,7 +125,6 @@ Company.prototype.patch = function (props, callback) {
             return callback(err);
         }
 
-        // Update our node with this updated+latest data from the server:
         self._node = results[0]['company'];
 
         callback(null);
@@ -155,10 +132,6 @@ Company.prototype.patch = function (props, callback) {
 };
 
 Company.prototype.del = function (callback) {
-    // Use a Cypher query to delete both this company and his/her following
-    // relationships in one query and one network request:
-    // (Note that this'll still fail if there are any relationships attached
-    // of any other types, which is good because we don't expect any.)
     
 	var query = [
 	   'MATCH (company:Company {companyname: {thisCompanyname}})',
@@ -201,12 +174,13 @@ Company.prototype.owner_of = function (other, callback) {
 };
 
 Company.prototype.un_owner_of = function (other, callback) {
+	//TODO: Modify this function by referring 'un_manage' function which deletes multiple objects at once 
 	var companyname = this.companyname;
 	
     var query = [
         'MATCH (domain:Domain {domainname: {otherDomainname}})',
         'MATCH (domain)-[:have]->(record:Record)',
-        'DETACH DELETE record',
+        'DETACH DELETE record', //remove records and relationships
     ].join('\n');
 
     var params = {
@@ -225,7 +199,7 @@ Company.prototype.un_owner_of = function (other, callback) {
             'MATCH (company:Company {companyname: {thisCompanyname}})',
             'MATCH (domain:Domain {domainname: {otherDomainname}})',
             'MATCH (company)-[:owner_of]->(domain)',
-            'DETACH DELETE domain',
+            'DETACH DELETE domain', //remove domains and relationships
         ].join('\n');
 
         var params2 = {
@@ -237,6 +211,7 @@ Company.prototype.un_owner_of = function (other, callback) {
             query: query2,
             params: params2,
         }, function (err) {
+        	//TODO: Consider when records are removed but domains exist 
         	callback(err);
         });
     	
@@ -266,9 +241,9 @@ Company.prototype.is_owner_of = function (other, callback) {
     		return callback(err);
     	}
     	if(res[0]){
-    		callback(null,{result: 'yes'});
+    		callback(null,{result: 'yes'}); //Owner company of domain
     	} else{
-    		callback(null,{result: 'no'});
+    		callback(null,{result: 'no'});  
     	}
     });
 };
@@ -340,7 +315,7 @@ Company.prototype.isManaging = function (other, callback) {
     		return callback(err);
         }
     	if(res[0]){
-    		callback(null,{result: 'yes'});
+    		callback(null,{result: 'yes'}); //Manager company of server
     	} else{
     		callback(null,{result: 'no'});
     	}
@@ -349,6 +324,7 @@ Company.prototype.isManaging = function (other, callback) {
 
 
 Company.prototype.delegator_of = function (other, callback) {
+	//TODO: Change function name to 'delegatee_of'
     var query = [
         'MATCH (company:Company {companyname: {thisCompanyname}})',
         'MATCH (other:Record {recordname: {otherRecordname}})',
@@ -369,6 +345,7 @@ Company.prototype.delegator_of = function (other, callback) {
 };
 
 Company.prototype.un_delegator_of = function (other, callback) {
+	//TODO: Change function name to 'un_delegatee_of'
 	var companyname = this.companyname;
 	
     var query = [
@@ -393,6 +370,7 @@ Company.prototype.un_delegator_of = function (other, callback) {
 
 
 Company.prototype.isDelegatorOf = function (other, callback) {
+	//TODO: Change function name to 'isDelegateeOf'
     var query = [
         'MATCH (company:Company {companyname: {thisCompanyname}})',
         'MATCH (other:Record{recordname: {otherRecordname}})',
@@ -413,7 +391,7 @@ Company.prototype.isDelegatorOf = function (other, callback) {
     		return callback(err);
         }
     	if(res[0]){
-    		callback(null,{result: 'yes'});
+    		callback(null,{result: 'yes'}); //Delegatee company of domain
     	} else{
     		callback(null,{result: 'no'});
     	}
@@ -444,7 +422,7 @@ Company.prototype.isDelegatedByServer = function (other, callback) {
     		return callback(err);
         }
     	if(res[0]){
-    		callback(null,{result: 'yes'});
+    		callback(null,{result: 'yes'}); //Delegatee company of any domain mapped by server
     	} else{
     		callback(null,{result: 'no'});
     	}
@@ -474,7 +452,7 @@ Company.prototype.isDelegatedByDomain = function (other, callback) {
     		return callback(err);
         }
     	if(res[0]){
-    		callback(null,{result: 'yes', bound: res[0].rel.properties.bound});
+    		callback(null,{result: 'yes', bound: res[0].rel.properties.bound}); //Delegatee company of domain with bound
     	} else{
     		callback(null,{result: 'no', bound: -1});
     	}
@@ -491,7 +469,7 @@ Company.prototype.getAdministratorAndOthers = function (callback) {
         'OPTIONAL MATCH (company) <-[rel:employee_of]- (others)',
         'OPTIONAL MATCH (company) <-[rel1:ons_administrator_of]- (others)',
         'OPTIONAL MATCH (company) <-[rel2:request]- (others)',
-        'RETURN others.username, COUNT(rel), COUNT(rel1), COUNT(rel2)', // COUNT(rel) is a hack for 1 or 0
+        'RETURN others.username, COUNT(rel), COUNT(rel1), COUNT(rel2)', 
     ].join('\n');
 
     var params = {
@@ -505,7 +483,7 @@ Company.prototype.getAdministratorAndOthers = function (callback) {
         if (err) {
         	return callback(err);
         }
-
+        // 'results' includes all users and thier relationships with company
         var administrators = [];
         var employees = [];
         var requests = [];
@@ -516,16 +494,17 @@ Company.prototype.getAdministratorAndOthers = function (callback) {
             var employee = results[i]['COUNT(rel)'];
             var administrator = results[i]['COUNT(rel1)'];
             var request = results[i]['COUNT(rel2)'];
-            if (request) {
+            
+            if (request) { //user who requests becoming administrator
             	requests.push(other);
             }
-            if (administrator) {
+            if (administrator) { //administrator user of company
             	administrators.push(other);
-            } else if (employee) {
+            } else if (employee) { //employee user of company
             	employees.push(other);
             }
             if (!request && !administrator && !employee)
-            {
+            { // user not related to company
             	others.push(other);
             }
         }
@@ -560,6 +539,7 @@ Company.get = function (companyname, callback) {
 };
 
 Company.getMy = function (companyname, callback) {
+	//TODO: This function is not used now but leave it. It may be used later. 
     var query = [
         'MATCH (company:Company {companyname: {companyname}})',
         'RETURN company',
@@ -589,10 +569,9 @@ Company.getMy = function (companyname, callback) {
 
 Company.getOwnerOf = function (companyname, callback) {
 
-    // Query all companys and whether we follow each one or not:
     var query = [
         'MATCH (company:Company {companyname: {thisCompanyname}})-[:owner_of]->(domain:Domain)',
-        'RETURN domain', // COUNT(rel) is a hack for 1 or 0
+        'RETURN domain', 
     ].join('\n');
 
     var params = {
@@ -610,30 +589,20 @@ Company.getOwnerOf = function (companyname, callback) {
         var domains = [];
 
         for (var i = 0; i < results.length; i++) {
-            //, function(err,domain){
-            //	if(domain)
         	var domain = new Domain(results[i]['domain']);
         	if(!domain.domainname) {
-        		return callback("Domain exists, but its domainname does not exist");
+        		return callback("Domain exists, but its domainname does not exist"); //This should not occur
         	}
-        	domains.push(domain.domainname);
-        	//var domains = new domain.Domain(results[i]['domain']);
-            //ownerships.push(domains.gs1code);
-        	//var companys = new Company(results[i]['domain']);
-        	//ownerships.push(companys.companyname);
+        	domains.push(domain.domainname); //domain list that company owns
         }
-        //if (owns.length == 0)
-        //	callback(null,null);
         callback(null, domains);
     });
 };
 
 Company.getManage = function (companyname, callback) {
-
-    // Query all companys and whether we follow each one or not:
     var query = [
         'MATCH (company:Company {companyname: {thisCompanyname}})-[:manage]->(server:Server)',
-        'RETURN server', // COUNT(rel) is a hack for 1 or 0
+        'RETURN server', 
     ].join('\n');
 
     var params = {
@@ -652,19 +621,12 @@ Company.getManage = function (companyname, callback) {
         var servers = [];
 
         for (var i = 0; i < results.length; i++) {
-            //, function(err,thing){
-            //	if(thing)
         	var server = new Server(results[i]['server']);
         	if(!server.servername){
-        		return callback("Server exists, but its servername does not exist");
+        		return callback("Server exists, but its servername does not exist"); //This should not occur
         	}
-        	servers.push(server.servername);
-        	//var things = new thing.Domain(results[i]['thing']);
-            //ownerships.push(things.gs1code);
-        	//var companys = new Company(results[i]['thing']);
-        	//ownerships.push(companys.companyname);
+        	servers.push(server.servername); //Server list that company manages
         }
-        console.log(servers);
         callback(null, servers);
     });
 };
@@ -673,27 +635,15 @@ Company.getManage = function (companyname, callback) {
 Company.getCompanyOwnerOfDomain = function (companyname, domainname, callback) {
 	cachedb.loadCachedData(companyname+':'+domainname, function(err, results){
 		if(results && JSON.parse(results).authority){
-			//console.log("cache hit for :"+companyname+":"+domainname);
 			cachedb.setExpire(companyname+':'+domainname, config.REDIS_DEFAULT_EXPIRE);
-			/*var company;
-			if(JSON.parse(results).authority === 'owner'){			
-				company =  new Company(JSON.parse(results).company);
-	            return callback(null, company , "owner");	
-			} else if (JSON.parse(results).authority === 'delegator'){			
-				company =  new Company(JSON.parse(results).company);
-	            return callback(null, company , "delegator");	
-			} else {
-				return callback(null);
-			}*/
 			return callback(null, JSON.parse(results).authority);
 		}
-	    // Query all users and whether we follow each one or not:
 	    var query = [
 	        'MATCH (domain:Domain {domainname: {thisDomainname}})',
 	        'MATCH (company:Company {companyname: {thisCompanyname}})',
 	        'OPTIONAL MATCH (company)-[rel1:owner_of]->(domain)',
 	        'OPTIONAL MATCH (domain)-[rel2:delegate]->(company)',
-	        'RETURN company, COUNT(rel1), COUNT(rel2)', // COUNT(rel) is a hack for 1 or 0
+	        'RETURN company, COUNT(rel1), COUNT(rel2)', 
 	    ].join('\n');
 	
 	    var params = {
@@ -709,7 +659,7 @@ Company.getCompanyOwnerOfDomain = function (companyname, domainname, callback) {
 	        	return callback(err);
 	        }
 	        if(!results[0]){
-	        	return callback('There is no company where you are administor');
+	        	return callback('There is no company having authority to domain'); //This should not occur
 	        }
 	
 	        var companiesOwnerOf = [];
@@ -717,19 +667,17 @@ Company.getCompanyOwnerOfDomain = function (companyname, domainname, callback) {
 	
 	        for (var i = 0; i < results.length; i++) {
 	        	if(results[i]['COUNT(rel1)']){
-	        		companiesOwnerOf.push(results[i]['company']);
+	        		companiesOwnerOf.push(results[i]['company']); //Owner of domain
 	        	} else if(results[i]['COUNT(rel2)']){
-	        		companiesDelegated.push(results[i]['company']);
+	        		companiesDelegated.push(results[i]['company']); //Delegatee of domain
 	        	}
 	        }
 	        var company;
 	        if(companiesOwnerOf.length){
 		    	cachedb.cacheDataWithExpire(companyname+':'+domainname, JSON.stringify({authority:"owner"}), config.REDIS_DEFAULT_EXPIRE);
-	        	//company = new Company(companiesOwnerOf[0]); 
 	            return callback(null, "owner");	
 	        } else if(companiesDelegated.length){
 		    	cachedb.cacheDataWithExpire(companyname+':'+domainname, JSON.stringify({authority:"delegator"}), config.REDIS_DEFAULT_EXPIRE);
-	        	//company = new Company(companiesDelegated[0]); 
 	            return callback(null, "delegator");	
 	        } else {
 		    	cachedb.cacheDataWithExpire(companyname+':'+domainname, JSON.stringify({authority:"no"}), config.REDIS_DEFAULT_EXPIRE);
@@ -741,10 +689,9 @@ Company.getCompanyOwnerOfDomain = function (companyname, domainname, callback) {
 
 Company.getDelegateManage = function (companyname, callback) {
 
-    // Query all companys and whether we follow each one or not:
     var query = [
         'MATCH (company:Company {companyname: {thisCompanyname}})<-[:delegate]-(:Domain)<-[:map]-(server:Server)',
-        'RETURN DISTINCT server', // COUNT(rel) is a hack for 1 or 0
+        'RETURN DISTINCT server', 
     ].join('\n');
 
     var params = {
@@ -765,9 +712,9 @@ Company.getDelegateManage = function (companyname, callback) {
         for (var i = 0; i < results.length; i++) {
         	var server = new Server(results[i]['server']);
         	if(!server.servername){
-        		return callback("Server exists, but its servername does not exist");
+        		return callback("Server exists, but its servername does not exist"); //This should not occur
         	}
-        	servers.push(server.servername);
+        	servers.push(server.servername); //Server whose domains have delegate authority with company
         }
         callback(null, servers);
     });
@@ -775,13 +722,12 @@ Company.getDelegateManage = function (companyname, callback) {
 
 
 Company.deleteDelegatorOfbyDomain = function (companyname, domainname, callback) {
-
-    // Query all companys and whether we follow each one or not:
+	//TODO: Change function name to 'deleteDelgateeOfbyDomain'
     var query = [
         'MATCH (company:Company {companyname: {thisCompanyname}})',
         'MATCH (domain:Domain {domainname:{thisDomainname}})',
         'MATCH (company)-[:delegator_of]->(record:Record)<-[:have]-(domain)',
-        'DETACH DELETE record', // COUNT(rel) is a hack for 1 or 0
+        'DETACH DELETE record',
     ].join('\n');
 
     var params = {
@@ -803,10 +749,10 @@ Company.deleteDelegatorOfbyDomain = function (companyname, domainname, callback)
 
 
 Company.getServerMappingDomain = function (companyname, domainname, callback) {
-    // Query all companys and whether we follow each one or not:
-    var query = [
+	//TODO: this function is not used now but leave it. It may be used later.
+     var query = [
         'MATCH (:Company {companyname: {thisCompanyname}})-[:owner_of]->(:Domain {domainname: {thisDomainname}})<-[:map]-(server:Server)',
-        'RETURN server', // COUNT(rel) is a hack for 1 or 0
+        'RETURN server', 
     ].join('\n');
 
     var params = {
@@ -833,7 +779,7 @@ Company.getServerMappingDomain = function (companyname, domainname, callback) {
 
 
 Company.ownerOfDomains = function (companyname, domainnames, callback) {
-	
+	//Make 'owner_of' relationship between company and multiple domains at once
 	if(domainnames.length){
 		Company.get(companyname, function(err, company){
 			if(err) {
@@ -861,48 +807,10 @@ Company.ownerOfDomains = function (companyname, domainnames, callback) {
 };
 
 
-/*Company.removeDomainAndOwnerOf = function (companyname, servername, domainname, callback) {
-	Company.get(companyname, function(err, company){
-		if(err){
-			return callback(err);
-		}
-		Server.get(servername, function(err, server){
-			if(err){
-				return callback(err);
-			}
-				
-			var pdns_config = {
-					  adapter: "mysql",
-					  db: "powerdns",
-					  user: server.dbUsername,
-					  password: server.dbPassword,
-					  host: server.servername
-					};
-		
-			var pdns = require('pdns')(pdns_config);
-			
-			pdns.domains.remove({name:domainname},{},function(err, res){
-				if(err){
-					return callback(err);
-				}
-				Domain.get(domainname, function(err, domain){
-					if(err){
-						return callback(err);
-					}
-					company.un_owner_of(domain, function(err){
-						return callback(err);
-					});
-				});
-			});
-		});
-	});
-};*/
-
-
 Company.getAll= function (callback) {
     var query = [
         'MATCH (company:Company)',
-        'RETURN company', // COUNT(rel) is a hack for 1 or 0
+        'RETURN company', 
     ].join('\n');
 
 
@@ -919,12 +827,11 @@ Company.getAll= function (callback) {
         	var company = new Company(results[i]['company']);
         	companies.push(company.companyname);
         }
-        callback(null, companies);
+        callback(null, companies); //return all companies' names
     });
 };
 
 
-// Creates the company and persists (saves) it to the db, incl. indexing it:
 Company.create = function (props, callback) {
     var query = [
         'CREATE (company:Company {props})',
@@ -940,11 +847,6 @@ Company.create = function (props, callback) {
         params: params,
     }, function (err, results) {
         if (isConstraintViolation(err)) {
-            // TODO: This assumes companyname is the only relevant constraint.
-            // We could parse the constraint property out of the error message,
-            // but it'd be nicer if Neo4j returned this data semantically.
-            // Alternately, we could tweak our query to explicitly check first
-            // whether the companyname is taken or not.
             err = new errors.ValidationError(
                 'The companyname ‘' + props.companyname + '’ is taken.');
         }
@@ -955,24 +857,3 @@ Company.create = function (props, callback) {
         callback(null, company);
     });
 };
-
-/*
-// Static initialization:
-
-// Register our unique companyname constraint.
-// TODO: This is done async'ly (fire and forget) here for simplicity,
-// but this would be better as a formal schema migration script or similar.
-db.createConstraint({
-    label: 'Company',
-    property: 'companyname',
-}, function (err, constraint) {
-    if (err) {
-    	throw err;     // Failing fast for now, by crash the application.
-    }
-    if (constraint) {
-        console.log('(Registered unique companynames constraint.)');
-    } else {
-        // Constraint already present; no need to log anything.
-    }
-});
-*/

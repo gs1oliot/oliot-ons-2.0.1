@@ -13,73 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-var //pg = require('pg'),
+var pg = require('pg'),
 	md5 =  require('md5'),
 	model = module.exports,
-	config = require('./config/conf.json'),
-	//connString = "postgres://"+config.PG_ID+":"+config.PG_PW+ "@" + config.PG_ADDRDB,
-	promise = require('bluebird'); // or any other Promise/A+ compatible library;
+	//cachedb = require('../cachedb.js'), //This is not used now
+	config = require('./config/conf.json');
 
-var options = {
-    promiseLib: promise // overriding the default (ES6 Promise);
-};
-var pgp = require('pg-promise')(options);
 //Database connection details;
 
-var cn = {
+var pg_config = {
     host: config.PG_ADDRESS, // 'localhost' is the default;
     port: config.PG_PORT, // 5432 is the default;
     database: config.PG_DB,
     user: config.PG_ID,
-    password: config.PG_PW
+    password: config.PG_PW,
+    max: 20,
+    idleTimeoutMillis: 30000,
 };
-// You can check for all default values in:
-// https://github.com/brianc/node-postgres/blob/master/lib/defaults.js
 
-var db = pgp(cn); // database instance;
+var pool = new pg.Pool(pg_config); // database instance;
 
-
-/*
- * Required
- */
 
 model.getAccessToken = function (bearerToken, callback) {
-
-	var sco;
 	
-	db.connect()
-		.then(function (obj){
-			sco = obj;
-			return sco.query('SELECT access_token, client_id, expires, user_id FROM oauth_access_tokens ' +
-			        'WHERE access_token = $1', [bearerToken]);
-		})
-		.then(function (data){
-			//console.log(data);
-			if(data.length){
-				var token = data[0];
-				callback(null, {
-					accessToken: token.access_token,
-					clientId: token.client_id,
-					expires: token.expires,
-					userId: token.userId
-		    	});
-			} else {
-				callback("There is no Access token for getAccessToken()");
-			}
-		})
-	    .catch(function (error) {
-	        console.log(error); // display the error; 
-	    	return callback(error);
-	    })
-	    .finally(function () {
-	        if (sco) {
-	            sco.done(); // release the connection, if it was successful; 
-	        }
-	    });
-	
-
-	
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect(function (err, client, done) {
     if (err) {
     	return callback(err);
     }
@@ -89,10 +46,6 @@ model.getAccessToken = function (bearerToken, callback) {
       if (err || !result.rowCount) {
     	  return callback(err);
       }
-      // This object will be exposed in req.oauth.token
-      // The user_id field will be exposed in req.user (req.user = { id: "..." }) however if
-      // an explicit user object is included (token.user, must include id) it will be exposed
-      // in req.user instead
       var token = result.rows[0];
       callback(null, {
         accessToken: token.access_token,
@@ -101,47 +54,11 @@ model.getAccessToken = function (bearerToken, callback) {
         userId: token.userId
       });
     });
-  });*/
+  });
 };
 
 model.getClient = function (clientId, clientSecret, callback) {
-
-	var sco;
-	db.connect()
-		.then(function (obj){
-			sco = obj;
-			return sco.query('SELECT client_id, client_secret, redirect_uri FROM oauth_clients WHERE ' +
-				      'client_id = $1', [clientId]);
-		})
-		.then(function (data){
-			if(data.length){
-		      var client = data[0];
-
-		      if (clientSecret !== null && client.client_secret !== md5(clientSecret)) {
-		    	  return callback();
-		      }
-
-		      // This object will be exposed in req.oauth.client
-		      callback(null, {
-		        clientId: client.client_id,
-		        clientSecret: client.client_secret
-		      });
-		      
-			} else {
-				callback("There is no client for getClient()");
-			}
-		})
-	    .catch(function (error) {
-	        console.log(error); // display the error; 
-	    	return callback(error);
-	    })
-	    .finally(function () {
-	        if (sco) {
-	            sco.done(); // release the connection, if it was successful; 
-	        }
-	    });
-	
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect( function (err, client, done) {
     if (err) {
     	return callback(err);
     }
@@ -158,84 +75,35 @@ model.getClient = function (clientId, clientSecret, callback) {
       if (clientSecret !== null && client.client_secret !== md5(clientSecret)) {
     	  return callback();
       }
-
-      // This object will be exposed in req.oauth.client
       callback(null, {
         clientId: client.client_id,
         clientSecret: client.client_secret
       });
     });
-  });*/
+  });
 };
 
 model.getRefreshToken = function (bearerToken, callback) {
-
-	var sco;
-
-	db.connect()
-		.then(function (obj){
-			sco = obj;
-			return sco.query('SELECT refresh_token, client_id, expires, user_id FROM oauth_refresh_tokens ' +
-			        'WHERE refresh_token = $1', [bearerToken]);
-		})
-		.then(function (data){
-			callback(null, data.length? data[0]:false);
-		})
-	    .catch(function (error) {
-	        console.log(error); // display the error; 
-	    	return callback(error);
-	    })
-	    .finally(function () {
-	        if (sco) {
-	            sco.done(); // release the connection, if it was successful; 
-	        }
-	    });
 	
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect( function (err, client, done) {
     if (err) {
     	return callback(err);
     }
     client.query('SELECT refresh_token, client_id, expires, user_id FROM oauth_refresh_tokens ' +
         'WHERE refresh_token = $1', [bearerToken], function (err, result) {
-      // The returned user_id will be exposed in req.user.id
       done();
       callback(err, result.rowCount ? result.rows[0] : false);
     });
-  });*/
+  });
 };
 
-// This will very much depend on your setup, I wouldn't advise doing anything exactly like this but
-// it gives an example of how to use the method to resrict certain grant types
-var authorizedClientIds = ['abc1', 'def2'];
 model.grantTypeAllowed = function (clientId, grantType, callback) {
   callback(false, true);
 };
 
 model.saveAccessToken = function (accessToken, clientId, expires, userId, callback) {
 
-	var sco;
-
-	db.connect()
-		.then(function (obj){
-			sco = obj;
-			return sco.query('INSERT INTO oauth_access_tokens(access_token, client_id, user_id, expires)'+
-					'VALUES ($1, $2, $3, $4)', [accessToken, clientId, userId.id, expires]);
-		})
-		.then(function (data){
-			return callback(null);
-		})
-	    .catch(function (error) {
-	        console.log(error); // display the error; 
-	    	return callback(error);
-	    })
-	    .finally(function () {
-	        if (sco) {
-	            sco.done(); // release the connection, if it was successful; 
-	        }
-	    });
-	
-  //console.log(expires);
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect( function (err, client, done) {
     if (err) {
     	return callback(err);
     }
@@ -244,32 +112,12 @@ model.saveAccessToken = function (accessToken, clientId, expires, userId, callba
       done();
       callback(err);
     });
-  });*/
+  });
 };
 
 model.saveRefreshToken = function (refreshToken, clientId, expires, userId, callback) {
-
-	var sco;
-	db.connect()
-	.then(function (obj){
-		sco = obj;
-		return sco.query('INSERT INTO oauth_refresh_tokens(refresh_token, client_id, user_id, expires)' +
-				'VALUES ($1, $2, $3, $4)', [refreshToken, clientId, userId.id, expires]);
-	})
-	.then(function (data){
-		return callback(null);
-	})
-    .catch(function (error) {
-        console.log(error); // display the error; 
-    	return callback(error);
-    })
-    .finally(function () {
-        if (sco) {
-            sco.done(); // release the connection, if it was successful; 
-        }
-    });
 	
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect(function (err, client, done) {
     if (err) {
     	return callback(err);
     }
@@ -277,35 +125,13 @@ model.saveRefreshToken = function (refreshToken, clientId, expires, userId, call
         done();
         callback(err);
     });
-  });*/
+  });
 };
 
-/*
- * Required to support password grant type
- */
-model.getUser = function (username, password, callback) {
 
-	var sco;
-	db.connect()
-	.then(function (obj){
-		sco = obj;
-		return sco.query('SELECT id FROM users WHERE username = $1 AND password = $2', 
-				[username, md5(password)]);
-	})
-	.then(function (data){
-	      callback(null, data.length? data[0]:false);
-	})
-    .catch(function (error) {
-        console.log(error); // display the error; 
-    	return callback(error);
-    })
-    .finally(function () {
-        if (sco) {
-            sco.done(); // release the connection, if it was successful; 
-        }
-    });
+model.getUser = function (username, password, callback) {
 	
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect( function (err, client, done) {
     if (err) {
     	return callback(err);
     }
@@ -314,32 +140,13 @@ model.getUser = function (username, password, callback) {
       done();
       callback(err, result.rowCount ? result.rows[0] : false);
     });
-  });*/
+  });
 };
 
 
 model.getUserbyUsername = function (username, callback) {
-
-	var sco;
-	db.connect()
-	.then(function (obj){
-		sco = obj;
-		return sco.query('SELECT id FROM users WHERE username = $1', [username]);
-	})
-	.then(function (data){
-		callback(null, data.length ? data[0] : false);
-	})
-    .catch(function (error) {
-        console.log(error); // display the error; 
-    	return callback(error);
-    })
-    .finally(function () {
-        if (sco) {
-            sco.done(); // release the connection, if it was successful; 
-        }
-    });
 	
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect(function (err, client, done) {
     if (err) {
     	return callback(err);
     }
@@ -347,33 +154,14 @@ model.getUserbyUsername = function (username, callback) {
       done();
       callback(err, result.rowCount ? result.rows[0] : false);
     });
-  });*/
+  });
 };
 
 
 model.saveUser = function (username, password, callback) {
 
-	var sco;
-	db.connect()
-	.then(function (obj){
-		sco = obj;
-		return sco.query('INSERT INTO users(id, username, password) ' +
-				'VALUES (gen_random_uuid(), $1, $2)', [username, md5(password)]);
-	})
-	.then(function (data){
-		return callback(null);
-	})
-    .catch(function (error) {
-        console.log(error); // display the error; 
-    	return callback(error);
-    })
-    .finally(function () {
-        if (sco) {
-            sco.done(); // release the connection, if it was successful; 
-        }
-    });
 	
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect(function (err, client, done) {
     if (err) {
     	return callback(err);
     }
@@ -383,32 +171,12 @@ model.saveUser = function (username, password, callback) {
       done();
       callback(err);
     });
-  });*/
+  });
 };
 
 
 model.saveOauthClient = function (clientId, clientSecret, redirectUrl, callback) {
-
-	var sco;
-	db.connect()
-	.then(function (obj){
-		sco = obj;
-		return sco.query('INSERT INTO oauth_clients(client_id, client_secret, redirect_uri) ' +
-				'VALUES ($1, $2, $3)', [clientId, md5(clientSecret), redirectUrl]);
-	})
-	.then(function (data){
-		return callback(null);
-	})
-    .catch(function (error) {
-        console.log(error); // display the error; 
-    	return callback(error);
-    })
-    .finally(function () {
-        if (sco) {
-            sco.done(); // release the connection, if it was successful; 
-        }
-    });
-  /*pg.connect(connString, function (err, client, done) {
+  pool.connect(function (err, client, done) {
     if (err) {
     	return callback(err);
     }
@@ -418,31 +186,11 @@ model.saveOauthClient = function (clientId, clientSecret, redirectUrl, callback)
       done();
       callback(err);
     });
-  });*/
+  });
 };
 
 model.deleteExpiredAccessTokens = function (callback){
-
-	var sco;
-	db.connect()
-	.then(function (obj){
-		sco = obj;
-		return sco.query('DELETE FROM oauth_access_tokens WHERE expires < (select localtimestamp)');
-	})
-	.then(function (data){
-		return callback(null);
-	})
-    .catch(function (error) {
-        console.log(error); // display the error; 
-    	return callback(error);
-    })
-    .finally(function () {
-        if (sco) {
-            sco.done(); // release the connection, if it was successful; 
-        }
-    });
-	
-	/*pg.connect(connString, function (err, client, done) {
+	pool.connect( function (err, client, done) {
 		if (err) {
 			return callback(err);
 		} 
@@ -450,31 +198,11 @@ model.deleteExpiredAccessTokens = function (callback){
 		    done();
 		    callback(err);
 		});
-	});*/
+	});
 };
 
 model.deleteExpiredRefreshTokens = function (callback){
-
-	var sco;
-	db.connect()
-	.then(function (obj){
-		sco = obj;
-		return sco.query('DELETE FROM oauth_refresh_tokens WHERE expires < (select localtimestamp)');
-	})
-	.then(function (data){
-		return callback(null);
-	})
-    .catch(function (error) {
-        console.log(error); // display the error; 
-    	return callback(error);
-    })
-    .finally(function () {
-        if (sco) {
-            sco.done(); // release the connection, if it was successful; 
-        }
-    });
-	
-	/*pg.connect(connString, function (err, client, done) {
+	pool.connect(function (err, client, done) {
 		if (err) {
 			return callback(err);
 		} 
@@ -482,33 +210,11 @@ model.deleteExpiredRefreshTokens = function (callback){
 		   done();
 		   callback(err);
 		});
-	});*/
+	});
 };
 
 model.getUseridbyToken = function (token, callback){
-
-	var sco;
-	
-	db.connect()
-		.then(function (obj){
-			sco = obj;
-			return sco.query('SELECT user_id FROM oauth_access_tokens WHERE access_token = $1', [token]);
-		})
-		.then(function (data){
-			callback(null, data.length ? data[0] : false);
-			
-		})
-	    .catch(function (error) {
-	        console.log(error); // display the error;
-			return callback(error); 
-	    })
-	    .finally(function () {
-	        if (sco) {
-	            sco.done(); // release the connection, if it was successful; 
-	        }
-	    });
-	
-	/*pg.connect(connString, function (err, client, done) {
+	pool.connect(function (err, client, done) {
 		if (err) {
 			return callback(err);
 		}
@@ -516,32 +222,12 @@ model.getUseridbyToken = function (token, callback){
 			done();
 		    callback(err, result.rowCount ? result.rows[0] : false);
 		});
-	});*/
+	});
 };
 
 
 model.getUsernamebyUserid = function (userid, callback){
-
-	var sco;
-	db.connect()
-	.then(function (obj){
-		sco = obj;
-		return sco.query('SELECT username FROM users WHERE id = $1', [userid]);
-	})
-	.then(function (data){
-		callback(null, data.length ? data[0] : false);
-	})
-    .catch(function (error) {
-        console.log(error); // display the error; 
-    	return callback(error);
-    })
-    .finally(function () {
-        if (sco) {
-            sco.done(); // release the connection, if it was successful; 
-        }
-    });
-	
-	/*pg.connect(connString, function (err, client, done) {
+	pool.connect( function (err, client, done) {
 		if (err) {
 			return callback(err);
 		}
@@ -549,16 +235,16 @@ model.getUsernamebyUserid = function (userid, callback){
 			done();
 		    callback(err, result.rowCount ? result.rows[0] : false);
 		});
-	});*/
+	});
 };
 
 model.getUserbyToken = function (token, callback){
+	//This is not used now
 	/*cachedb.loadCachedData(token, function(err, results){
 		if(results && JSON.parse(results).username){
-			//console.log("cache hit for :"+token);
 			cachedb.setExpire(token, config.REDIS_DEFAULT_EXPIRE);
 			return callback(err, JSON.parse(results));
-		}*/ 
+		}*/
 		model.getUseridbyToken(token, function(err, results){
 			if(err){
 				return callback(err);
@@ -574,7 +260,7 @@ model.getUserbyToken = function (token, callback){
 					return callback("there is no matched user");
 				}
 				callback(err, results);
-				//console.log(config.REDIS_DEFAULT_EXPIRE);
+				//This is not used now
 				//cachedb.cacheDataWithExpire(token, JSON.stringify(results), config.REDIS_DEFAULT_EXPIRE);
 			});
 		});	
@@ -583,25 +269,17 @@ model.getUserbyToken = function (token, callback){
 
 
 model.getClientidAndToken = function (callback){
-	var sco;
-	
-	db.connect()
-		.then(function (obj){
-			sco = obj;
-			return sco.query('SELECT client_id,access_token FROM oauth_access_tokens');
-		})
-		.then(function (data){
-			callback(null, data);
-			
-		})
-	    .catch(function (error) {
-	        console.log(error); // display the error;
-			return callback(error); 
-	    })
-	    .finally(function () {
-	        if (sco) {
-	            sco.done(); // release the connection, if it was successful; 
-	        }
-	    });
-	
+	pool.connect(function (err, client, done) {
+		if (err) {
+			return callback(err);
+		}
+		client.query('SELECT client_id,access_token FROM oauth_access_tokens', function (err, result){
+			done();
+			if(err){
+				console.log(err);
+				return callback(err);
+			}
+		    callback(err, result.rowCount ? result.rows : false);
+		});
+	});
 };

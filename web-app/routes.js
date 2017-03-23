@@ -186,7 +186,6 @@ exports.configure = function (app) {
 		
 		rest.postOperation(ons_api_address, uri, null, req.user.token, null, args, function (error, response) {
 			if (error) {
-				//console.log("err:"+JSON.stringify(error));
 				res.render('addDomain.jade', { user: req.user, server: servername, error: error });
 			} else {
 				res.redirect('/server/'+servername);
@@ -322,7 +321,6 @@ exports.configure = function (app) {
 			for(var i=0 ; i< records.length; ++i){
 				strRecords+=records[i].name + ' IN '+records[i].ttl +' '+records[i].type+' '+ records[i].content + '\n';
 			}
-			//console.log(domain);
 			
 			res.render('exportDomain.jade', { user: req.user, domain: req.params.domainname, server: req.params.servername, strRecords: strRecords, error: error });
 		});
@@ -346,13 +344,6 @@ exports.configure = function (app) {
 		for(var i = 0; i< arrRecords.length ;  ++i){
 			var attRecord = arrRecords[i].split(' ');
 			var record = {};
-			/*record['name'] = attRecord[0];
-			record['ttl'] = attRecord[2];
-			record['type'] = attRecord[3];
-			record['content'] = attRecord[4];
-			for(var j = 5; j< attRecord.length; ++j){
-				record['content'] += ' '+ attRecord[j];
-			}*/
 			record.name = attRecord[0];
 			record.ttl = attRecord[2];
 			record.type = attRecord[3];
@@ -375,39 +366,14 @@ exports.configure = function (app) {
 			if(error){
 				return res.render('importDomain.jade', { user: req.user, domain: domainname, server: servername, error: error });
 			}
-			/*rest.postOperation(ons_api_address, uri+'/server/'+servername+'/map', null, req.user.token, null, args, function (error, response) {
+			var newArgs = "{\"records\":"+JSON.stringify(records)+"}";
+			rest.postOperation(ons_api_address, uri+'/newRecords', null, req.user.token, null, newArgs, function (error, response) {
 				if (error) {
-					//console.log("err:"+JSON.stringify(error));
 					return res.render('importDomain.jade', { user: req.user, domain: domainname, server: servername, error: error });
-				} else {*/
-					var newArgs = "{\"records\":"+JSON.stringify(records)+"}";
-					rest.postOperation(ons_api_address, uri+'/newRecords', null, req.user.token, null, newArgs, function (error, response) {
-						if (error) {
-							return res.render('importDomain.jade', { user: req.user, domain: domainname, server: servername, error: error });
-						}
-						res.redirect('/server/'+servername);
-					});
-				//}
-			//});
+				}
+				res.redirect('/server/'+servername);
+			});
 		});
-		
-		//console.log(records);
-		
-		/*if(company){
-			uri = 'company/'+req.user.email+'/domain/'+domainname+'/unDelegate';
-		} else {
-			uri = 'user/'+req.user.email+'/domain/'+domainname+'/unDelegate';
-		}
-
-		var args = "{\"companyname\":\""+req.body.delegator+"\"}";
-		
-		
-		rest.postOperation(ons_api_address, uri, null, req.user.token, null, args, function (error, response) {
-			if (error) {
-				return res.render('removeDelegate.jade', { user: req.user, server: req.params.servername, delegators: [], error: error });
-			}
-			res.redirect('/server/'+servername);
-		});*/
 	});
 	
 	app.get('/server/:servername/domain/:domainname', auth.ensureAuthenticated, function(req, res){
@@ -582,8 +548,5 @@ exports.configure = function (app) {
 				});
 			}
 		});
-	});
-	
-
-	
+	});	
 };

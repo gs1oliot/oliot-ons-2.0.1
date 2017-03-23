@@ -9,8 +9,6 @@ var neo4j_url = "http://"+config.NEO_ID+":"+config.NEO_PW+"@"+config.NEO_ADDRESS
 var checkString = require('./util').checkString;
 
 var db = new neo4j.GraphDatabase({
-    // Support specifying database info via environment variables,
-    // but assume Neo4j installation defaults.
     url: process.env['NEO4J_URL'] || process.env['GRAPHENEDB_URL'] ||
     	neo4j_url,
     auth: process.env['NEO4J_AUTH'],
@@ -19,8 +17,6 @@ var db = new neo4j.GraphDatabase({
 // Private constructor:
 
 var Record = module.exports = function Record(_node) {
-    // All we'll really store is the node; the rest of our properties will be
-    // derivable or just pass-through properties (see below).
     this._node = _node;
 };
 
@@ -51,8 +47,6 @@ Record.VALIDATION_INFO = {
 };
 
 // Public instance properties:
-
-// The record's recordname, e.g. 'aseemk'.
 Object.defineProperty(Record.prototype, 'recordname', {
     get: function () { return this._node.properties['recordname']; }
 });
@@ -65,10 +59,6 @@ Object.defineProperty(Record.prototype, 'recordcontent', {
     get: function () { return this._node.properties['recordcontent']; }
 });
 // Private helpers:
-
-//Validates the given property based on the validation info above.
-//By default, ignores null/undefined/empty values, but you can pass `true` for
-//the `required` param to enforce that any required properties are present.
 function validateProp(prop, val, required) {
  var info = Record.VALIDATION_INFO[prop];
  var message = info.message;
@@ -98,12 +88,6 @@ function validateProp(prop, val, required) {
  }
 }
 
-// Takes the given caller-provided properties, selects only known ones,
-// validates them, and returns the known subset.
-// By default, only validates properties that are present.
-// (This allows `Record.prototype.patch` to not require any.)
-// You can pass `true` for `required` to validate that all required properties
-// are present too. (Useful for `Record.create`.)
 function validate(props, required) {
     var safeProps = {};
 
@@ -126,8 +110,6 @@ function isConstraintViolation(err) {
 
 // Public instance methods:
 
-// Atomically updates this record, both locally and remotely in the db, with the
-// given property updates.
 Record.prototype.patch = function (props, callback) {
     var safeProps = validate(props);
 
@@ -149,11 +131,6 @@ Record.prototype.patch = function (props, callback) {
         params: params,
     }, function (err, results) {
         if (isConstraintViolation(err)) {
-            // TODO: This assumes recordname is the only relevant constraint.
-            // We could parse the constraint property out of the error message,
-            // but it'd be nicer if Neo4j returned this data semantically.
-            // Alternately, we could tweak our query to explicitly check first
-            // whether the recordname is taken or not.
             err = new errors.ValidationError(
                 'The recordname ‘' + props.recordname + '’ is taken.');
         }
@@ -166,7 +143,6 @@ Record.prototype.patch = function (props, callback) {
             return callback(err);
         }
 
-        // Update our node with this updated+latest data from the server:
         self._node = results[0]['record'];
 
         callback(null);
@@ -174,10 +150,6 @@ Record.prototype.patch = function (props, callback) {
 };
 
 Record.prototype.del = function (callback) {
-    // Use a Cypher query to delete both this record and his/her following
-    // relationships in one query and one network request:
-    // (Note that this'll still fail if there are any relationships attached
-    // of any other types, which is good because we don't expect any.)
     
 	var query = [
 	   'MATCH (record:Record {recordname: {thisRecordname}})',
@@ -203,16 +175,16 @@ Record.refineRecords = function (domainname, records) {
 
 		var recordname = records[i].name;
 		
-		if(recordname.length > (domainname.length + 1)){
+		if(recordname.length > (domainname.length + 1)){ //Record name length is longer than domain name length, that is record name includes domain name at the end
 			var lastStr = recordname.substr(recordname.length - domainname.length - 1);
-			if( lastStr !== '.' + domainname){
+			if( lastStr !== '.' + domainname){ //Record name is not ended by domain name
 				recordname += '.'+domainname;
 			}
-		} else if(recordname.length === domainname.length){
-			if(recordname !== domainname){
+		} else if(recordname.length === domainname.length){ //Record name length is the same as domain name length, that is record name is the same as domain name
+			if(recordname !== domainname){ //Roecord name is not same with domain name
 				recordname += '.'+domainname;
 			}
-		} else {
+		} else { //Record name length is shorter than domain name length, that is record name does not include domain name
 			recordname += '.'+domainname;
 		}
 
@@ -296,35 +268,9 @@ Record.edit= function(name, editname, edittype, editcontent,  callback){
             return callback(null, null);
         }
         var record = new Record(results[0]['record']);
-        callback(null, record);
+        callback(null, record); //Note: Edited record should be returned to edit record in back-end too 
     });
 };
-
-//this function should be implemented in db api
-/*Record.removeAllRecordsfromServer = function (servername, callback){
-	var Server = require('./server');
-	var backdb_wrapper = require('../backdb/wrapper');
-	Server.get(servername, function(err, server){
-		var servernameArr = server.servername.split(":");
-		var lastDigit = servernameArr[1].substring(3,4);
-		console.log("??:" + lastDigit);
-		var config = {
-				poolname: server.servername,	
-				host: servernameArr[0],
-				database: server.dbName,
-				user: server.dbUsername,
-				password: server.dbPassword,
-				port: "330"+lastDigit,
-		};
-		backdb_wrapper.recordsRemoveAll(config, function(err, result){
-			if (err) {
-				console.log(err);
-				return callback(err);
-			}
-				return callback(null, result);
-		});
-	});
-};*/
 
 Record.get = function (recordname, callback) {
     var query = [
@@ -353,8 +299,6 @@ Record.get = function (recordname, callback) {
 
 
 
-
-// Creates the record and persists (saves) it to the db, incl. indexing it:
 Record.create = function (props, callback) {
     var query = [
         'CREATE (record:Record {props})',
@@ -370,11 +314,6 @@ Record.create = function (props, callback) {
         params: params,
     }, function (err, results) {
         if (isConstraintViolation(err)) {
-            // TODO: This assumes recordname is the only relevant constraint.
-            // We could parse the constraint property out of the error message,
-            // but it'd be nicer if Neo4j returned this data semantically.
-            // Alternately, we could tweak our query to explicitly check first
-            // whether the recordname is taken or not.
             err = new errors.ValidationError(
                 'The recordname ‘' + props.recordname + '’ is taken.');
         }
@@ -385,24 +324,3 @@ Record.create = function (props, callback) {
         callback(null, record);
     });
 };
-
-/*
-// Static initialization:
-
-// Register our unique recordname constraint.
-// TODO: This is done async'ly (fire and forget) here for simplicity,
-// but this would be better as a formal schema migration script or similar.
-db.createConstraint({
-    label: 'Record',
-    property: 'recordname',
-}, function (err, constraint) {
-    if (err) {
-    	throw err;     // Failing fast for now, by crash the application.
-    }
-    if (constraint) {
-        console.log('(Registered unique recordnames constraint.)');
-    } else {
-        // Constraint already present; no need to log anything.
-    }
-});
-*/

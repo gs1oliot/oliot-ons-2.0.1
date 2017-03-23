@@ -12,8 +12,6 @@ var pdns_config = {
 		  user: config.dbUsername,
 		  password: config.dbPassword,
 		  port: config.dbPort,
-		  /*connectionLimit: config.dbPoolConnLimit,
-		  waitForConnections: false*/
 };
 
 var pdns = require('pdns')(pdns_config);
@@ -27,10 +25,8 @@ exports.configure = function (app) {
 	 
 	app.oauth = oauthserver({
 	  model: require('./auth'), 
-	  //grants: ['password', 'refresh_token'],
 	  debug: true,
-	  accessTokenLifetime: 36000/*,
-	  refreshTokenLifetime: 999999999*/
+	  accessTokenLifetime: 36000
 	});
 
 	app.all('/oauth/token', app.oauth.grant()); 
@@ -88,9 +84,9 @@ exports.configure = function (app) {
 		}
 	});
 	
-	app.get('/record', app.oauth.authorise(), function (req, res){
+	app.get('/domain/:domainname/record', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
-			var domainname = req.body.domainname;
+			var domainname = req.params.domainname;
 			pdns.records.list(domainname, {}, {}, function(err, records) {
 				if(err){
 					return res.send({error: err.message});
@@ -102,9 +98,9 @@ exports.configure = function (app) {
 		}
 	});
 	
-	app.post('/record', app.oauth.authorise(), function (req, res){
+	app.post('/domain/:domainname/record', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
-			var domainname = req.body.domainname;
+			var domainname = req.params.domainname;
 			var record = req.body.record;
 			pdns.records.add(domainname, {name: record.name, 
 				type: record.type, 
@@ -121,9 +117,9 @@ exports.configure = function (app) {
 		}
 	});	
 	
-	app.put('/record', app.oauth.authorise(), function (req, res){
+	app.put('/domain/:domainname/record', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
-			var domainname = req.body.domainname;
+			var domainname = req.params.domainname;
 			var record = req.body.record;
 			pdns.records.edit(domainname, {name: record.name, 
 				type: record.type, 
@@ -141,9 +137,9 @@ exports.configure = function (app) {
 		}
 	});
 	
-	app.del('/record', app.oauth.authorise(), function (req, res){
+	app.del('/domain/:domainname/record', app.oauth.authorise(), function (req, res){
 		if(pdns_config.user === req.body.dbUsername && pdns_config.password === req.body.dbPassword){
-			var domainname = req.body.domainname;
+			var domainname = req.params.domainname;
 			var record = req.body.record;
 			if(record.name && record.type && record.content){
 				pdns.records.remove(domainname, {name:record.name, type:record.type, content:record.content}, {}, function(err, response){

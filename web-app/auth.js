@@ -55,10 +55,6 @@ exports.configure = function (login_url, logout_url, app) {
 		res.redirect('/');
 	});
 
-	/*app.get(login_url + "/:targetURL" + "signup", function (req, res, next) {
-		res.render('signup.jade', { user: req.user });
-	});*/
-
 	app.get('/signup', function (req, res, next) {
 		res.render('signup.jade', { user: req.user });
 	});

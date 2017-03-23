@@ -4,6 +4,7 @@ var config = require('./config/conf.json');
 
 var ons_api_address = config.ONS_API_ADDRESS;
 
+//HTTP header
 exports.getOperationRequest = function (uri, operation, username, token, password) {
 	var uri_base = uri;
 	if (uri_base.lastIndexOf('/') !== uri_base.length - 1) {
@@ -64,7 +65,7 @@ exports.authenticate = function (username, password, callback) {
 	});
 };
 
-
+//HTTP post
 exports.postOperation = function (uri, operation, username, token, password, args, callback) {
 	if (operation === null) {
 		return callback("invalid input to executeOperation");
@@ -98,7 +99,7 @@ exports.postOperation = function (uri, operation, username, token, password, arg
 	
 };
 
-
+//HTTP get
 exports.getOperation = function (uri, operation, username, token, password, args, callback) {
 	if (operation === null) {
 		return callback("invalid input to executeOperation");
@@ -136,6 +137,8 @@ exports.getOperation = function (uri, operation, username, token, password, args
 	
 };
 
+
+//HTTP del
 exports.delOperation = function (uri, operation, username, token, password, args, callback) {
 	if (operation === null) {
 		return callback("invalid input to executeOperation");

@@ -29,7 +29,7 @@ exports.postOperation = function (uri, operation, args, callback) {
 
 	var operationReq = exports.getOperationRequest(uri, operation);
 	operationReq.body = args;
-	//console.log(operationReq);
+	console.log(operationReq);
 	
 	request.post(operationReq, function (error, res, body){
 		if (error) {
@@ -37,7 +37,6 @@ exports.postOperation = function (uri, operation, args, callback) {
 		}
 		if (res.statusCode === 200) {
 			try {
-				//console.log(body);
 				var operationResponse = JSON.parse(body);
 				if(operationResponse.error) {
 					return callback(operationResponse.error);
@@ -66,7 +65,7 @@ exports.getOperation = function (uri, operation, args, callback) {
 	if(args){
 		operationReq.body = args;
 	}
-	//console.log(operationReq);
+	console.log(operationReq);
 	
 	request.get(operationReq, function (error, res, body){
 		if (error) {
@@ -74,7 +73,6 @@ exports.getOperation = function (uri, operation, args, callback) {
 		}
 		if (res.statusCode === 200) {
 			try {
-				//console.log(body);
 				var operationResponse = JSON.parse(body);
 				if(operationResponse.error){
 					return callback(operationResponse.error);

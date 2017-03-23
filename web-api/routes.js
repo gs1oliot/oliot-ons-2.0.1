@@ -22,8 +22,7 @@ exports.configure = function (app) {
 	  model: require('./models/ACL/auth'), 
 	  grants: ['password', 'refresh_token'],
 	  debug: true,
-	  accessTokenLifetime: 36000/*,
-	  refreshTokenLifetime: 999999999*/
+	  accessTokenLifetime: 36000
 	});
 
 	app.all('/oauth/token', app.oauth.grant()); 
@@ -682,15 +681,14 @@ exports.configure = function (app) {
 											console.log(err)
 											return res.send({ error : err});
 										}
+										return res.send({result: "success"});
 									}
-									res.send({result: "success"});
 									Record.createAndMakeRelationships(refinedRecords[0].name+':'+recordId, refinedRecords[0].type, refinedRecords[0].content, req.params.domainname, req.params.companyname, function(err){
-										if(err && err.neo4j.code !== 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+										if(err) {  //err.neo4j.code
 											console.log(err)
-											return res.send({ error : err});
 										}
-										return ;
 									});
+									return res.send({result: "success"});
 								});
 							}); 
 						} else {
@@ -698,13 +696,12 @@ exports.configure = function (app) {
 								if(err) {
 									var arrMsg = error.split(' ');
 									if(arrMsg[0]!=='ER_DUP_ENTRY:'){
-										//console.log(err.neo4j)
+										
 										return res.send({ error : err});
 									}
 								}
 								return res.send({result: "success"});
 							});
-							//res.send({result: "success"});
 						}
 					} else{
 						return res.send({ error : "one of records makes syntax error"});
@@ -1354,15 +1351,14 @@ exports.configure = function (app) {
 												console.log(err);
 												return res.send({ error : err});
 											}
+											return res.send({result: "success"});
 										}
-										res.send({result: "success"});
 										Record.createAndMakeRelationships(refinedRecords[0].name+':'+recordId, refinedRecords[0].type, refinedRecords[0].content, req.params.domainname, companyname, function(err){
-											if(err && err.neo4j.code !== 'Neo.ClientError.Schema.ConstraintValidationFailed') {
-												console.log(err);
-												return res.send({ error : err});
+											if(err) { //error.neo4j.code
+												console.log(err)
 											}
-											return ;
-										});													
+										});	
+										return res.send({result: "success"});
 									});
 								}); 
 							} else{
@@ -1376,7 +1372,6 @@ exports.configure = function (app) {
 									}
 									return res.send({result: "success"});
 								});
-								//res.send({result: "success"});
 							}
 						} else{
 							return res.send({ error : "one of records makes syntax error"});

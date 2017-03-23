@@ -1,6 +1,3 @@
-/**
- * http://usejsdoc.org/
- */
 var	Redis = require('ioredis');
 
 var config = require('../config/conf.json');
@@ -19,7 +16,6 @@ module.exports.cacheDataWithExpire=function(id, data, expire){
 		 if(err) {
 			 console.log(err);
 		 }
-		 //console.log(results);
 	});
 };
 

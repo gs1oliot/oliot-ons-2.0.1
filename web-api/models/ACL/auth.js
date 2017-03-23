@@ -30,15 +30,9 @@ var pg_config = {
     max: 20,
     idleTimeoutMillis: 30000,
 };
-// You can check for all default values in:
-// https://github.com/brianc/node-postgres/blob/master/lib/defaults.js
 
 var pool = new pg.Pool(pg_config); // database instance;
 
-
-/*
- * Required
- */
 
 model.getAccessToken = function (bearerToken, callback) {
 	
@@ -52,10 +46,6 @@ model.getAccessToken = function (bearerToken, callback) {
       if (err || !result.rowCount) {
     	  return callback(err);
       }
-      // This object will be exposed in req.oauth.token
-      // The user_id field will be exposed in req.user (req.user = { id: "..." }) however if
-      // an explicit user object is included (token.user, must include id) it will be exposed
-      // in req.user instead
       var token = result.rows[0];
       callback(null, {
         accessToken: token.access_token,
@@ -68,7 +58,6 @@ model.getAccessToken = function (bearerToken, callback) {
 };
 
 model.getClient = function (clientId, clientSecret, callback) {
-	
   pool.connect( function (err, client, done) {
     if (err) {
     	return callback(err);
@@ -86,8 +75,6 @@ model.getClient = function (clientId, clientSecret, callback) {
       if (clientSecret !== null && client.client_secret !== md5(clientSecret)) {
     	  return callback();
       }
-
-      // This object will be exposed in req.oauth.client
       callback(null, {
         clientId: client.client_id,
         clientSecret: client.client_secret
@@ -104,16 +91,12 @@ model.getRefreshToken = function (bearerToken, callback) {
     }
     client.query('SELECT refresh_token, client_id, expires, user_id FROM oauth_refresh_tokens ' +
         'WHERE refresh_token = $1', [bearerToken], function (err, result) {
-      // The returned user_id will be exposed in req.user.id
       done();
       callback(err, result.rowCount ? result.rows[0] : false);
     });
   });
 };
 
-// This will very much depend on your setup, I wouldn't advise doing anything exactly like this but
-// it gives an example of how to use the method to resrict certain grant types
-var authorizedClientIds = ['abc1', 'def2'];
 model.grantTypeAllowed = function (clientId, grantType, callback) {
   callback(false, true);
 };
@@ -145,9 +128,7 @@ model.saveRefreshToken = function (refreshToken, clientId, expires, userId, call
   });
 };
 
-/*
- * Required to support password grant type
- */
+
 model.getUser = function (username, password, callback) {
 	
   pool.connect( function (err, client, done) {
@@ -296,7 +277,7 @@ model.getClientidAndToken = function (callback){
 				console.log(err);
 				return callback(err);
 			}
-		    callback(err, result.rowCount ? result.rows[0] : false);
+		    callback(err, result.rowCount ? result.rows : false);
 		});
 	});
 };

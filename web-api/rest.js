@@ -1,5 +1,6 @@
 var request = require('request');
 
+//Make HTTP header
 exports.getOperationRequest = function (uri, operation, username, token, password) {
 	var uri_base = uri;
 	if (uri_base.lastIndexOf('/') !== uri_base.length - 1) {
@@ -38,6 +39,7 @@ exports.getOperationRequest = function (uri, operation, username, token, passwor
 	};
 };
 
+//HTTP Post
 exports.postOperation = function (uri, operation, username, token, password, args, callback) {
 	if (operation === null) {
 		return callback("invalid input to executeOperation");
@@ -45,7 +47,6 @@ exports.postOperation = function (uri, operation, username, token, password, arg
 
 	var operationReq = exports.getOperationRequest(uri, operation, username, token, password);
 	operationReq.body = args;
-	//console.log(operationReq);
 	
 	request.post(operationReq, function (error, res, body){
 		if (error) {
@@ -71,7 +72,7 @@ exports.postOperation = function (uri, operation, username, token, password, arg
 	
 };
 
-
+//HTTP Get
 exports.getOperation = function (uri, operation, username, token, password, args, callback) {
 	if (operation === null) {
 		return callback("invalid input to executeOperation");
@@ -109,7 +110,7 @@ exports.getOperation = function (uri, operation, username, token, password, args
 	
 };
 
-
+//HTTP del
 exports.delOperation = function (uri, operation, username, token, password, args, callback) {
 	if (operation === null) {
 		return callback("invalid input to executeOperation");
@@ -146,7 +147,7 @@ exports.delOperation = function (uri, operation, username, token, password, args
 	
 };
 
-
+//http put
 exports.putOperation = function (uri, operation, username, token, password, args, callback) {
 	if (operation === null) {
 		return callback("invalid input to executeOperation");
