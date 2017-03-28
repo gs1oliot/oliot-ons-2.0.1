@@ -13,6 +13,11 @@ services:
       - ${PWD}/ons-data/neo4j/data:/data
       - ${PWD}/ons-data/neo4j/logs:/logs
       - ${PWD}/ons-data/neo4j/constraints.cql:/var/lib/neo4j/import/constraints.cql
+      - ${PWD}/ons-data/neo4j/constraints.sh:/constraints.sh
+    entrypoint: 
+      - bash
+    command:
+      - /constraints.sh
   auth_ons:
     container_name: auth_postgre
     image: postgres:9.4
@@ -46,7 +51,7 @@ services:
       - "4001:4001"
     command: ["/bin/wait-for-it.sh", "acl_neo4j:7474", "--timeout=30", "--", "node", "ons_api_app.js"]
   web_app:
-    container_name: web-app
+    container_name: web_app
     build:
       context: ./web-app
       dockerfile: Dockerfile
