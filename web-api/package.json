@@ -13,7 +13,6 @@
     "neo4j":"2.0.0-RC2",
     "oauth2-server":"2.4.1",
     "pg": "6.1.0",
-    "pdns": "0.2.2",
     "mysql": "2.11.1",
     "ioredis": "2.2.0",
     "request": "*"
