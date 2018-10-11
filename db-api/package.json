@@ -11,7 +11,7 @@
     "body-parser":"1.13.3",
     "md5":"2.0.0",
     "oauth2-server":"2.4.1",
-    "pg": "6.1.0",
+    "pg": "~> 6.1.6",
     "rimraf": "2.5.4",
     "request": "*",
     "pdns": "git+https://github.com/kiwoongkwon/node-pdns.git"
