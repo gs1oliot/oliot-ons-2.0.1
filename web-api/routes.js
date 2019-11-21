@@ -694,16 +694,18 @@ exports.configure = function (app) {
 								}
 							}); 
 						} else {
-							Domain.newRecords(req.params.domainname, refinedRecords[0], req.oauth.bearerToken.accessToken, function(err, recordId){
-								if(err) {
-									var arrMsg = error.split(' ');
-									if(arrMsg[0]!=='ER_DUP_ENTRY:'){
-										
-										return res.send({ error : err});
+							for(var i in refinedRecords) {
+								Domain.newRecords(req.params.domainname, refinedRecords[i], req.oauth.bearerToken.accessToken, function(err, recordId){
+									if(err) {
+										var arrMsg = error.split(' ');
+										if(arrMsg[0]!=='ER_DUP_ENTRY:'){
+
+											return res.send({ error : err});
+										}
 									}
-								}
-								return res.send({result: "success"});
-							});
+									return res.send({result: "success"});
+								});
+							}
 						}
 					} else{
 						return res.send({ error : "one of records makes syntax error"});
