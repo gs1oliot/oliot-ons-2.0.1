@@ -674,22 +674,24 @@ exports.configure = function (app) {
 								if(response.result !== 'no'){
 									return res.send({ error : 'Number of delegated records reaches to maximum'});
 								}
-								Domain.newRecords(req.params.domainname, refinedRecords[0], req.oauth.bearerToken.accessToken, function(err, recordId){
-									if(err) {
-										var arrMsg = error.split(' ');
-										if(arrMsg[0]!=='ER_DUP_ENTRY:'){
-											console.log(err)
-											return res.send({ error : err});
+								for(var i in refinedRecords) {
+									Domain.newRecords(req.params.domainname, refinedRecords[i], req.oauth.bearerToken.accessToken, function(err, recordId){
+										if(err) {
+											var arrMsg = error.split(' ');
+											if(arrMsg[0]!=='ER_DUP_ENTRY:'){
+												console.log(err)
+												return res.send({ error : err});
+											}
+											return res.send({result: "success"});
 										}
+										Record.createAndMakeRelationships(refinedRecords[i].name+':'+recordId, refinedRecords[i].type, refinedRecords[i].content, req.params.domainname, req.params.companyname, function(err){
+											if(err) {  //err.neo4j.code
+												console.log(err)
+											}
+										});
 										return res.send({result: "success"});
-									}
-									Record.createAndMakeRelationships(refinedRecords[0].name+':'+recordId, refinedRecords[0].type, refinedRecords[0].content, req.params.domainname, req.params.companyname, function(err){
-										if(err) {  //err.neo4j.code
-											console.log(err)
-										}
 									});
-									return res.send({result: "success"});
-								});
+								}
 							}); 
 						} else {
 							Domain.newRecords(req.params.domainname, refinedRecords[0], req.oauth.bearerToken.accessToken, function(err, recordId){
