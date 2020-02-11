@@ -136,12 +136,12 @@ Domain.prototype.patch = function (props, callback) {
 };
 
 Domain.prototype.del = function (callback) {
-    
+
 	var query = [
 	   'MATCH (domain:Domain {domainname: {thisDomainname}})',
 	   'MATCH (domain)-[:have]->(record)',
 	   'DETACH DELETE domain, record'
-	   
+
 	].join('\n');
 
     var params = {
@@ -273,12 +273,12 @@ Domain.isExceededBound = function (companyname, domainname, callback) {
 	        'MATCH (domain) -[rel:delegate]-> (other) -[:delegator_of]-> (record: Record) <-[:have]- (domain)',
 	        'RETURN count(DISTINCT record), rel.bound',
 	    ].join('\n');
-	
+
 	    var params = {
 	    	thisDomainname: domainname,
 	        otherCompanyname: companyname,
 	    };
-	
+
 	    db.cypher({
 	        query: query,
 	        params: params,
@@ -380,7 +380,7 @@ Domain.prototype.getDelegatorAndOthers = function (company, callback) {
     	thisDomainname: this.domainname,
         thisCompanyname: company.companyname,
     };
-    
+
     db.cypher({
         query: query,
         params: params,
@@ -388,16 +388,16 @@ Domain.prototype.getDelegatorAndOthers = function (company, callback) {
         if (err) {
         	return callback(err);
         }
-        
+
         var others = [];
         var delegators = [];
-        
-        
+
+
         for (var i = 0; i < results.length; i++) {
             console.log(results[i]);
             var other = results[i]['others.companyname'];
             var delegator = results[i]['COUNT(rel)'];
-            
+
             if (delegator) {
             	delegators.push(other); //Delegatees of domain
             } else {
@@ -413,7 +413,7 @@ Domain.prototype.getDelegatorAndOthers = function (company, callback) {
 Domain.getHave = function (domainname, callback) {
     var query = [
         'MATCH (domain:Domain {domainname: {thisDomainname}})-[:have]->(record:Record)',
-        'RETURN record', 
+        'RETURN record',
     ].join('\n');
 
     var params = {
@@ -452,13 +452,13 @@ Domain.getMapped = function (domainname, callback) {
 		}
 	    var query = [
 	        'MATCH (domain:Domain {domainname: {thisDomainname}})<-[:map]-(server:Server)',
-	        'RETURN server', 
+	        'RETURN server',
 	    ].join('\n');
-	
+
 	    var params = {
 	        thisDomainname: domainname,
 	    };
-	
+
 	    var domain = this;
 	    db.cypher({
 	        query: query,
@@ -467,7 +467,7 @@ Domain.getMapped = function (domainname, callback) {
 	        if (err) {
 	        	return callback(err);
 	        }
-	
+
 	        if (!results.length) {
 	            err = new Error('No servers are mapped to domain: ' + domainname);
 	            return callback(err);
@@ -487,15 +487,15 @@ Domain.getRecords = function (domainname, token, callback) {
         	return callback(err);
         }
 		//TODO: Do not expose the password of DB
-		var args="{\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}"; 
+		var args="{\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
 		rest.getOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 			if (error) {
 	        	return callback(error);
-			} 
+			}
 			callback(null, response.records);
 		});
 	});
-	
+
 };
 
 
@@ -544,22 +544,22 @@ Domain.editRecords = function (domainname, editRecords, token, callback) {
 		if(err) {
         	return callback(err);
         }
-			
+
 		var args="{\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
 		//get all records from backend
 		rest.getOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 			if (error) {
 		       	return callback(error);
-			} 
+			}
 			var records = response.records;
-			
-			
+
+
 			var found = 0;
 			var changed = false;
 			for(var i=0; i< records.length; ++i){
 				for(var j=0; j<editRecords.length; ++j){
 					if(records[i].id === Number(editRecords[j].id)){
-						if(changed === false && 
+						if(changed === false &&
 							(records[i].name !== editRecords[j].name ||
 							records[i].type !== editRecords[j].type ||
 							records[i].ttl !== Number(editRecords[j].ttl) ||
@@ -569,7 +569,7 @@ Domain.editRecords = function (domainname, editRecords, token, callback) {
 						found++;
 						j=editRecords.length; //Escape for loop if matched record is found
 					}
-					
+
 				}
 			}
 			if(found !== records.length){
@@ -579,33 +579,33 @@ Domain.editRecords = function (domainname, editRecords, token, callback) {
 				found = 0;
 				for(var i=0; i< editRecords.length; ++i){
 					var recordJson = {
-						name: editRecords[i].name, 
+						name: editRecords[i].name,
 						type: editRecords[i].type,
 						content: editRecords[i].content,
 						ttl: editRecords[i].ttl
 					};
 					var argsJson = {record:recordJson, id:editRecords[i].id, dbUsername:server.dbUsername, dbPassword: server.dbPassword};
 					var args=JSON.stringify(argsJson);
-					//Put changed record in back-end 
+					//Put changed record in back-end
 					rest.putOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 						if (error) {
 							var arrMsg = error.split(' ');
 							if(arrMsg[0] !== 'Duplicate' || arrMsg[1] !== 'entry'){
 								return callback(error);
 							}
-						} 
+						}
 						found++;
-						if(found === editRecords.length){		
+						if(found === editRecords.length){
 					        return callback(null);
 						}
 					});
 				}
 			} else{
-	        	return callback(null);	
+	        	return callback(null);
 			}
 		});
 	});
-	
+
 };
 
 Domain.editDelegatedRecords = function (domainname, editRecords, token, callback) {
@@ -637,11 +637,11 @@ Domain.editDelegatedRecords = function (domainname, editRecords, token, callback
 						found++;
 						j=editRecords.length; //Escape for loop if matched record is found
 					}
-					
+
 				}
 			}
 			if(found !== editRecords.length){
-				
+
 	        	return callback("There exists un-matched ID for records from domain: "+domainname);
 			}
 			if(changed){
@@ -655,23 +655,23 @@ Domain.editDelegatedRecords = function (domainname, editRecords, token, callback
 					};
 					var argsJson = {id:editRecords[i].id, record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 					var args=JSON.stringify(argsJson);
-					//Put changed record in back-end 
+					//Put changed record in back-end
 					rest.putOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 						if (error) {
 							var arrMsg = error.split(' ');
 							if(arrMsg[0] !== 'Duplicate' || arrMsg[1] !== 'entry'){
 								return callback(error);
 							}
-						} 
+						}
 						found++;
 						if(found === editRecords.length){
 							found = 0;
 							for(var j=0; j< editRecords.length; ++j){
 								for(var k=0; k<changedRecords.length; ++k){
 									if(Number(editRecords[j].id) === changedRecords[k].id){
-										Record.edit(changedRecords[k].name+':'+editRecords[j].id, 
-										editRecords[j].name+':'+editRecords[j].id, 
-										editRecords[j].type,  
+										Record.edit(changedRecords[k].name+':'+editRecords[j].id,
+										editRecords[j].name+':'+editRecords[j].id,
+										editRecords[j].type,
 										editRecords[j].content,
 										function (error, record){
 											if(error){
@@ -690,11 +690,11 @@ Domain.editDelegatedRecords = function (domainname, editRecords, token, callback
 					});
 				}
 			} else{
-				
-	        	return callback(null);	
+
+	        	return callback(null);
 			}
 		});
-	
+
 	});
 };
 
@@ -706,8 +706,8 @@ Domain.newRecords = function (domainname, newRecords, token, callback) {
         	return callback(err);
         }
 
-		var recordJson = { 
-				name: newRecords.name, 
+		var recordJson = {
+				name: newRecords.name,
 				type: newRecords.type,
 				content: newRecords.content,
 				ttl: newRecords.ttl,
@@ -741,7 +741,7 @@ Domain.removeRecordAndHave = function (domainname, recordname, recordid, token, 
 			} else {
 				recordJson = {name:recordname, id:recordid};
 			}
-			
+
 			var argsJson = {record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 			var args=JSON.stringify(argsJson);
 			//Delete record from back-end
@@ -776,7 +776,7 @@ Domain.removeAllRecordAndHave = function (domainname, token, callback) {
 		Domain.get(domainname, function(err, domain){
 			if(err){
 				return callback(err);
-			}	
+			}
 			var args="{\"dbUsername\":\""+server.dbUsername+"\",\"dbPassword\":\""+server.dbPassword+"\"}";
 			rest.getOperation("http://"+server.servername, "domain/"+domainname+"/record", null, token, null, args, function (error, response) {
 				if (error) {
@@ -786,8 +786,7 @@ Domain.removeAllRecordAndHave = function (domainname, token, callback) {
 				var found = 0;
 				if(records.length > 0){
 					for(var i = 0; i< records.length; ++i){
-
-						var recordJson = {name:records[i].name, type:records[i].type, content: records[i].content};
+						var recordJson = {name:records[i].name, id:records[i].id};
 						var argsJson = {record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 						var args=JSON.stringify(argsJson);
 						//Delete all records from back-end
@@ -797,9 +796,9 @@ Domain.removeAllRecordAndHave = function (domainname, token, callback) {
 							}
 							++found;
 							if(found === records.length){
-								//Delete all records from access control 
+								//Delete all records from access control
 								domain.un_have_all(function(err){
-									
+
 									return callback(err);
 								});
 							}
@@ -827,7 +826,7 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 				if(err) {
 					return res.send({ error : err});
 				}
-		        	
+
 				Domain.getDelegatedRecordByCompany(companyname, domainname, function(err, delegatedRecords){
 					if(err){
 			       		return callback(err);
@@ -837,7 +836,7 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 			        	if(err){
 			        		return callback(err);
 			        	}
-			        	
+
 						if(delegatedRecords.length){ //Records by delegatee exist
 
 							var delegatedRecordParams=[];
@@ -859,9 +858,9 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 							}
 							delegatedRecords = delegatedRecordParams;
 							var count = 0;
-							
+
 							for (var i =0; i < delegatedRecords.length; ++i){
-	
+
 								var recordJson = {name:delegatedRecords[i].recordname, type:delegatedRecords[i].recordtype, content: delegatedRecords[i].content};
 								var argsJson = {record:recordJson, dbUsername:server.dbUsername, dbPassword:server.dbPassword};
 								var args=JSON.stringify(argsJson);
@@ -871,7 +870,7 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 								       	return callback(error);
 									}
 									++count;
-									
+
 									if(count === records.length){
 										//Delete delegated record from access control
 										domain.un_delegate(company, function(err){
@@ -879,10 +878,10 @@ Domain.removeDelegateAndDelegatorOf = function (domainname, companyname, token, 
 										});
 									}
 								});
-							}		
+							}
 						} else{
 							domain.un_delegate(company, function(err){
-								
+
 								return callback(err);
 							});
 						}
