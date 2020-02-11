@@ -20,7 +20,9 @@ You can install ONS server comprised of ONS compliant DNS software(powerDNS), ba
 ```shell
 $ bash deploy_ons_server.sh 
 ```
-Note: You can install both servers in one machine.
+### Notice
+* You can install both servers in one machine.
+* If you want more long string use in content field, you have to edit Database table.(Default max value is 200)
 
 ## License
 See [LICENSE](LICENSE).
