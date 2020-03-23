@@ -31,6 +31,9 @@ $ bash deploy_ons_server.sh
 |  2 |   ???   |
 +----+---------+
 
+# Connect mysql docker
+# vi etc/mysql/my.cnf
+
 [client]
 default-character-set=utf8
 
