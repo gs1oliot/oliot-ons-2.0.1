@@ -22,19 +22,19 @@ CREATE TABLE IF NOT EXISTS `records` (
   `domain_id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
   `type` varchar(255) NOT NULL,
-  `content` varchar(255) NOT NULL,
+  `content` MEDIUMTEXT NOT NULL,
   `ttl` int(11) NOT NULL,
   `prio` int(11) DEFAULT NULL,
   `change_date` int(11) NOT NULL,
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `name` (`name`,`type`,`content`),
+  UNIQUE KEY `name` (`name`,`type`,`id`),
   KEY `index_records_on_domain_id` (`domain_id`),
   KEY `index_records_on_name` (`name`),
   KEY `index_records_on_name_and_type` (`name`,`type`),
-  FOREIGN KEY (domain_id) REFERENCES domains(id) 
+  FOREIGN KEY (domain_id) REFERENCES domains(id)
     ON UPDATE CASCADE
     ON DELETE CASCADE
-);
+)DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
 
