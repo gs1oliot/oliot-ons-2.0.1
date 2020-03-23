@@ -22,7 +22,22 @@ $ bash deploy_ons_server.sh
 ```
 ### Notice
 * You can install both servers in one machine.
-* If you want more long string use in content field, you have to edit Database table.(Default max value is 200)
+* If the data in the mysql table is displayed as an unknown string as shown below, add the following command.
+```shell
++----+---------+
+| id | content |
++----+---------+
+|  1 |   ???   |
+|  2 |   ???   |
++----+---------+
 
+[client]
+default-character-set=utf8
+
+[mysqld]
+collation-server = utf8_unicode_ci
+init-connect='SET NAMES utf8'
+character-set-server = utf8
+```
 ## License
 See [LICENSE](LICENSE).
